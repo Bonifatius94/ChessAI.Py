@@ -15,4 +15,4 @@ services:
       - "./entrypoint.sh:/entrypoint.sh"
 
     # launch the entrypoint script on startup
-    entrypoint: [/entrypoint.sh, reinf-chessai.py]
+    entrypoint: [/entrypoint.sh, keras-test.py]
