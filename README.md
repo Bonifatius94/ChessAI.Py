@@ -32,4 +32,7 @@ cd ChessAI.Py
 # start the training using a composition file
 # the composition automatically builds the Dockerfile from the ChessLib.py submodule as image
 docker-compose -f reinf-learning-compose.yml up
+
+# start the keras example take from https://www.tensorflow.org/tutorials/keras/classification
+docker-compose -f keras-test-compose.yml up
 ```
