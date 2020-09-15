@@ -21,18 +21,15 @@ Markow Chain that backpropagates possible future game situations to evaluate a s
 ## How to Build / Train
 Use the composition file to run your learning algorithm within a Docker container that has the chesslib pre-installed.
 ```sh
-# clone the github repo
-git clone https://github.com/Bonifatius94/ChessAI.Py
+# install docker (e.g. on Ubuntu 18.04)
+sudo apt-get update && sudo apt-get install -y git docker.io docker-compose
+sudo usermod -aG docker $USER && reboot
+
+# clone the github repo (including all submodules)
+git clone --recurse-submodules https://github.com/Bonifatius94/ChessAI.Py
 cd ChessAI.Py
 
-# build the chesslib image from https://github.com/Bonifatius94/ChessLib.Py
-sudo apt-get update && sudo apt-get install -y git docker.io
-sudo usermod -aG docker $USER && reboot
-git clone https://github.com/Bonifatius94/ChessLib.Py
-cd ChessLib.Py
-docker build . -t "chesslib-python3:1.0"
-cd ..
-
 # start the training using a composition file
+# the composition automatically builds the Dockerfile from the ChessLib.py submodule as image
 docker-compose -f reinf-learning.yml up
 ```

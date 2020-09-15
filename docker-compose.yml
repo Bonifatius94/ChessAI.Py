@@ -1,0 +1,18 @@
+
+version: "2"
+
+services:
+
+  reinf-chess-ai:
+  
+    # automatically build the Dockerfile from the ChessLib.Py submodule
+    build:
+      context: ./ChessLib.Py
+
+    # mount the source files and entrypoint script
+    volumes:
+      - "./src:/home/ai/src"
+      - "./entrypoint.sh:/entrypoint.sh"
+
+    # launch the entrypoint script on startup
+    entrypoint: /entrypoint.sh
