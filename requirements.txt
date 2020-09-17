@@ -1,0 +1,27 @@
+
+# ===========================================
+#          R E Q U I R E M E N T S
+# ===========================================
+
+absl-py==0.10.0
+asserts==0.10.0
+astor==0.8.1
+chesslib>=1.0.0
+gast==0.4.0
+google-pasta==0.2.0
+grpcio==1.32.0
+h5py==2.10.0
+importlib-metadata==1.7.0
+keras-applications==1.0.8
+keras-preprocessing==1.1.2
+markdown==3.2.2
+numpy==1.19.2
+protobuf==3.13.0
+setuptools==50.3.0
+tensorboard==1.14.0
+tensorflow-estimator==1.14.0
+tensorflow==1.14.0
+termcolor==1.1.0
+werkzeug==1.0.1
+wrapt==1.12.1
+zipp==3.1.0

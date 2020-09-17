@@ -40,7 +40,7 @@ def init_training_data():
 
 
 def do_training():
-    
+
     sess = tf.Session()
     with sess.as_default():
 
