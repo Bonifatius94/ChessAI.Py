@@ -3,6 +3,7 @@
 #          R E Q U I R E M E N T S
 # ===========================================
 
+# tensorflow
 absl-py==0.10.0
 asserts==0.10.0
 astor==0.8.1
@@ -25,3 +26,7 @@ termcolor==1.1.0
 werkzeug==1.0.1
 wrapt==1.12.1
 zipp==3.1.0
+
+# deep reinforcement learning
+#gym
+#keras-rl
