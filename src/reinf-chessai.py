@@ -40,11 +40,16 @@ import chesslib
 import random
 import numpy as np
 import multiprocessing
+import os
+import math
 
 
 # training settings
 mutations_count = 1000
 training_epoch = 100
+parallel_processes = 16
+results_out_dir = os.environ['MODEL_OUT']
+# TODO: make those settings parameterizable with program args
 
 
 def main():
@@ -56,6 +61,7 @@ def main():
 def do_reinforcement_learning():
 
     # init keras model for first iteration
+    # TODO: check if this model fits the problem
     best_estimator = keras.Sequential([
         keras.layers.Flatten(input_shape=(14,)),
         keras.layers.Dense(128, activation='sigmoid'),
@@ -71,31 +77,70 @@ def do_reinforcement_learning():
         keras.layers.Dense(1, activation='linear')
     ])
 
-    # compile the network
-    best_estimator.compile(
-        optimizer='adam',
-        loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
-        metrics=['accuracy']
-        # TODO: replace this function with the win rate
-    )
+    # initialize the model optimizer
+    optimizer = keras.optimizers.Adam(learning_rate=0.01)
+
+    # compile the model and save it
+    best_estimator.compile(optimizer=optimizer, loss=loss, metrics=['accuracy'])
+
+    epoch = 0
+    best_win_rate = 0.0
 
     # do endless training loop
+    # TODO: think of a graceful termination mechanism
     while True:
 
-        # create a training sessions
-        sessions = [TrainingSession(i, best_estimator) for i in range(mutations_count)]
-        win_rates_by_id = []
-
+        # create training sessions
+        sessions = [(i, TrainingSession(i, optimizer.get_updates(best_estimator.trainable_weights, 
+            best_estimator.constraints, loss(best_win_rate, None)))) for i in range(mutations_count)]
+        
         # reinforcement training in parallel
-        with multiprocessing.Pool(processes=16) as pool:
+        win_rates_by_id = []
+        with multiprocessing.Pool(processes=parallel_processes) as pool:
             win_rates_by_id = pool.map(TrainingSession.do_training, sessions)
 
         # pick the best estimator (highest win rate)
         sorted_win_rates = [x[1] for x in win_rates_by_id.sort()]
         index = np.argmax(np.array(sorted_win_rates))
         best_estimator = sessions[index].mutated_estimator
+        best_win_rate = sorted_win_rates[index]
 
-        # TODO: evaluation vs. stockfish engine
+        # evaluate estimator vs. stockfish engine
+        test_win_rate = test_estimator_vs_stockfish(best_estimator)
+
+        # save the estimator to file
+        save_model_weights(best_estimator, epoch)
+
+        # print the 
+        print("training epoch:", epoch, "training loss:", 
+            loss(best_win_rate, None), "test loss:", loss(test_win_rate, None))
+
+
+def test_estimator_vs_stockfish(best_estimator):
+
+    win_rate = 0.0
+
+    # TODO: implement test logic
+
+    return win_rate
+
+
+def loss(win_rate, dummy):
+    return math.exp(-1 * (win_rate - 0.5))
+
+
+def save_model(model):
+
+    # serialize model to JSON
+    model_json = model.to_json()
+    with open("chess-ai-model.json", "w") as json_file:
+        json_file.write(model_json)
+
+
+def save_model_weights(model, epoch):
+
+    # serialize weights to HDF5
+    model.save_weights("chess-ai-model-weights-{}.h5".format(epoch))
 
 
 class TrainingSession(object):
