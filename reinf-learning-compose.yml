@@ -28,3 +28,6 @@ services:
 
     # start the reinf-chessai.py script on startup using the entrypoint
     command: reinf-chessai.py
+
+    environment:
+      MODEL_OUT: "/home/ai/model"
