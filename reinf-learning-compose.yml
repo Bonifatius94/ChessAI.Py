@@ -31,3 +31,6 @@ services:
 
     environment:
       MODEL_OUT: "/home/ai/model"
+
+    volumes:
+      - './model_out:/home/ai/model'

@@ -36,6 +36,7 @@
 
 import tensorflow as tf
 from tensorflow import keras
+import tensorflow.keras.backend as K
 import chesslib
 import random
 import numpy as np
@@ -48,17 +49,12 @@ import math
 mutations_count = 1000
 training_epoch = 100
 parallel_processes = 16
+learning_rate = 0.01
 results_out_dir = os.environ['MODEL_OUT']
 # TODO: make those settings parameterizable with program args
 
 
 def main():
-
-    # start the training
-    do_reinforcement_learning()
-
-
-def do_reinforcement_learning():
 
     # init keras model for first iteration
     # TODO: check if this model fits the problem
@@ -77,33 +73,39 @@ def do_reinforcement_learning():
         keras.layers.Dense(1, activation='linear')
     ])
 
-    # initialize the model optimizer
-    optimizer = keras.optimizers.Adam(learning_rate=0.01)
-
     # compile the model and save it
-    best_estimator.compile(optimizer=optimizer, loss=loss, metrics=['accuracy'])
+    #best_estimator.compile(optimizer="Adam")
 
     epoch = 0
     best_win_rate = 0.0
 
     # do endless training loop
     # TODO: think of a graceful termination mechanism
-    while True:
+    for k in range(1000):
 
         # create training sessions
-        sessions = [(i, TrainingSession(i, optimizer.get_updates(best_estimator.trainable_weights, 
-            best_estimator.constraints, loss(best_win_rate, None)))) for i in range(mutations_count)]
-        
-        # reinforcement training in parallel
+        mutations = [mutate_model(best_estimator, learning_rate) for i in range(mutations_count)]
+        sessions = [(i, TrainingSession(i, best_estimator, mutations[i])) for i in range(mutations_count)]
+
         win_rates_by_id = []
-        with multiprocessing.Pool(processes=parallel_processes) as pool:
-            win_rates_by_id = pool.map(TrainingSession.do_training, sessions)
+        for sess in sessions:
+            win_rate = sess.do_training()
+            win_rates_by_id.append((id, win_rate))
+
+        # reinforcement training in parallel
+        #win_rates_by_id = []
+        #with multiprocessing.Pool(processes=parallel_processes) as pool:
+        #    win_rates_by_id = pool.map(TrainingSession.do_training, sessions)
 
         # pick the best estimator (highest win rate)
         sorted_win_rates = [x[1] for x in win_rates_by_id.sort()]
         index = np.argmax(np.array(sorted_win_rates))
-        best_estimator = sessions[index].mutated_estimator
-        best_win_rate = sorted_win_rates[index]
+        new_best_win_rate = sorted_win_rates[index]
+
+        # only override old estimator if there is an improvement
+        if new_best_win_rate > best_win_rate:
+            best_estimator = sessions[index].mutated_estimator
+            best_win_rate = new_best_win_rate
 
         # evaluate estimator vs. stockfish engine
         test_win_rate = test_estimator_vs_stockfish(best_estimator)
@@ -111,9 +113,8 @@ def do_reinforcement_learning():
         # save the estimator to file
         save_model_weights(best_estimator, epoch)
 
-        # print the 
-        print("training epoch:", epoch, "training loss:", 
-            loss(best_win_rate, None), "test loss:", loss(test_win_rate, None))
+        # print the training progress
+        print("training epoch:", epoch, "training loss:", best_win_rate, "test loss:", test_win_rate)
 
 
 def test_estimator_vs_stockfish(best_estimator):
@@ -125,8 +126,41 @@ def test_estimator_vs_stockfish(best_estimator):
     return win_rate
 
 
-def loss(win_rate, dummy):
-    return math.exp(-1 * (win_rate - 0.5))
+def mutate_model(orig_model: keras.Model, learning_rate):
+
+    # clone the given model
+    model = tf.keras.models.clone_model(orig_model)
+
+    # get the model's weights
+    weights = model.get_weights()
+
+    print("updating weights")
+    print(len(weights))
+
+    for i in range(len(weights)):
+
+        # calculate the differential weight changes (random uniform distribution)
+        shape = weights[i].shape
+        updates = np.random.uniform(-learning_rate, learning_rate, shape)
+
+        old_weights = weights[i]
+        updated_weights = np.add(weights[i], updates)
+
+        upper_bound = updated_weights >= -1
+        lower_bound = updated_weights <= 1
+        within_range = np.logical_and(upper_bound, lower_bound)
+        outside_range = np.logical_not(within_range)
+
+        if len(old_weights[outside_range]) > 0:
+            updated_weights = np.add(updated_weights[within_range], old_weights[outside_range])
+
+        # apply updates to the weights
+        weights[i] = updated_weights
+
+    # update the model with the new weights and return the updated model
+    model.set_weights(weights)
+
+    return model
 
 
 def save_model(model):
@@ -140,18 +174,19 @@ def save_model(model):
 def save_model_weights(model, epoch):
 
     # serialize weights to HDF5
-    model.save_weights("chess-ai-model-weights-{}.h5".format(epoch))
+    out_file_path = "chess-ai-model-weights-{}.h5".format(epoch)
+    model.save_weights(out_file_path)
 
 
 class TrainingSession(object):
 
-    def __init__(self, id, best_estimator):
+    def __init__(self, id, best_estimator, mutated_estimator):
 
         self.id = id
 
         # init estimators
         self.best_estimator = best_estimator
-        self.mutated_estimator = keras.model.clone_model(best_estimator)
+        self.mutated_estimator = mutated_estimator
         # TODO: add mutation formula!!!!!! (otherwise there is no learning progess ...)
 
         # init training variables
@@ -167,12 +202,16 @@ class TrainingSession(object):
 
     def do_training(self):
 
+        print("start training session #", self.id)
+
         # play several training games
         for i in range(training_epoch):
             self.play_chessgame()
 
         # determine the win rate
         win_rate = 1.0 * self.wins / (self.wins + self.defeats)
+
+        print("end training session #", self.id)
         return (id, win_rate)
 
 
