@@ -84,12 +84,12 @@ def main():
     for k in range(1000):
 
         # create training sessions
-        mutations = [mutate_model(best_estimator, learning_rate) for i in range(mutations_count)]
-        sessions = [(i, TrainingSession(i, best_estimator, mutations[i])) for i in range(mutations_count)]
+        mutations = [mutate_model(best_estimator, learning_rate) 
+            for i in range(mutations_count)]
 
         win_rates_by_id = []
-        for sess in sessions:
-            win_rate = sess.do_training()
+        for i in range(len(mutations)):
+            win_rate = do_training(i, best_estimator, mutations[i])
             win_rates_by_id.append((id, win_rate))
 
         # reinforcement training in parallel
@@ -104,17 +104,20 @@ def main():
 
         # only override old estimator if there is an improvement
         if new_best_win_rate > best_win_rate:
-            best_estimator = sessions[index].mutated_estimator
+
+            # update 'best' cache
+            best_estimator = mutations[index]
             best_win_rate = new_best_win_rate
 
-        # evaluate estimator vs. stockfish engine
-        test_win_rate = test_estimator_vs_stockfish(best_estimator)
+            # evaluate estimator vs. stockfish engine
+            test_win_rate = test_estimator_vs_stockfish(best_estimator)
 
-        # save the estimator to file
-        save_model_weights(best_estimator, epoch)
+            # save the estimator to file
+            save_model_weights(best_estimator, epoch)
 
         # print the training progress
-        print("training epoch:", epoch, "training loss:", best_win_rate, "test loss:", test_win_rate)
+        print("training epoch:", epoch, "training loss:", (1 - best_win_rate), 
+            "test loss:", (1 - test_win_rate), flush=True)
 
 
 def test_estimator_vs_stockfish(best_estimator):
@@ -178,104 +181,138 @@ def save_model_weights(model, epoch):
     model.save_weights(out_file_path)
 
 
-class TrainingSession(object):
+def do_training(id, best_estimator: keras.Model, mutated_estimator: keras.Model):
 
-    def __init__(self, id, best_estimator, mutated_estimator):
+    print("start training session #", id)
 
-        self.id = id
+    wins = 0
+    ties = 0
+    defeats = 0
 
-        # init estimators
-        self.best_estimator = best_estimator
-        self.mutated_estimator = mutated_estimator
-        # TODO: add mutation formula!!!!!! (otherwise there is no learning progess ...)
+    # play several training games
+    for i in range(1000):
 
-        # init training variables
-        self.wins = 0
-        self.ties = 0
-        self.defeats = 0
+        # play one game
+        game_state = play_chessgame(best_estimator, mutated_estimator)
 
-        # init chess game variables
-        self.board = chesslib.ChessBoard_StartFormation()
-        self.drawing_side = 0
-        self.draw_history = []
+        # apply the game's outcome
+        if game_state == 'w':
+            wins += 1
+        elif game_state == 'd':
+            defeats += 1
+        elif game_state == 't':
+            ties += 1
 
+        # print_progress(i, 1000)
+        print("game", i)
 
-    def do_training(self):
+    # determine the win rate
+    win_rate = 1.0 * wins / (wins + defeats) if (wins + defeats) > 0 else 0.0
 
-        print("start training session #", self.id)
-
-        # play several training games
-        for i in range(training_epoch):
-            self.play_chessgame()
-
-        # determine the win rate
-        win_rate = 1.0 * self.wins / (self.wins + self.defeats)
-
-        print("end training session #", self.id)
-        return (id, win_rate)
+    print("end training session #", id, " win rate:", win_rate)
+    return (id, win_rate)
 
 
-    def play_chessgame(self):
+def play_chessgame(best_estimator: keras.Model, mutated_estimator: keras.Model):
 
-        # reset it chess game variables
-        self.board = chesslib.ChessBoard_StartFormation()
-        self.drawing_side = 0
-        self.draw_history = []
+    # reset it chess game variables
+    board = chesslib.ChessBoard_StartFormation()
+    drawing_side = 0
+    draw_history = []
+    game_state = 'n'
 
-        # determine side selection
-        training_side = random.randint(0, 1)
+    # determine side selection
+    training_side = random.randint(0, 1)
+    round = 1.0
 
-        # play until the game is over
-        while True:
+    # play until the game is over
+    while True:
 
-            # compute all possible draws
-            last_draw = self.draw_history[-1] if len(self.draw_history) > 0 else chesslib.ChessDraw_Null
-            draws = chesslib.GenerateDraws(self.board, training_side, last_draw, True)
-            vector = np.append(draws, np.full(len(draws), last_draw))
+        # compute all possible draws
+        last_draw = draw_history[-1] if len(draw_history) > 0 else chesslib.ChessDraw_Null
+        draws = chesslib.GenerateDraws(board, drawing_side, last_draw, True)
+        possible_boards = np.array([chesslib.ApplyDraw(board, draw) for draw in draws])
+        fill_column = np.expand_dims(np.full(len(draws), last_draw), axis=1)
+        vector = np.append(possible_boards, fill_column, axis=1)
 
-            # determine the best of those draws using the estimator
-            model = self.mutated_estimator if self.drawing_side == training_side else self.best_estimator
-            predictions = model.predict(vector)
-            best_draw = draws[np.argmax(predictions)]
-            # TODO: check if this does the right stuff
+        # determine the best of those draws using the estimator
+        model = mutated_estimator if drawing_side == training_side else best_estimator
+        predictions = model.predict(vector)
+        best_draw = draws[np.argmax(predictions)]
 
-            # apply the draw to the chessboard
-            self.board = chesslib.ApplyDraw(self.board, best_draw)
+        # apply the draw to the chessboard
+        board = chesslib.ApplyDraw(board, best_draw)
 
-            # update game variables
-            self.draw_history.append(best_draw)
+        # update game variables
+        draw_history.append(best_draw)
 
-            # exit if the game is over
-            if self.is_game_over():
-                break
+        # exit if the game is over
+        game_state = get_game_state(board, draw_history, drawing_side)
+        if game_state != 'n':
+            break
+
+        if has_loops(draw_history):
+            game_state = 't'
+            break
+
+        drawing_side = (drawing_side + 1) % 2
+        round += 0.5
+
+    return game_state
 
 
-    def is_game_over(self):
+def get_game_state(board, draw_history, drawing_side):
 
-        # don't compute this function if the board is still in start formation
-        if len(self.draw_history) == 0:
-            return False
+    # don't compute this function if the board is still in start formation
+    if len(draw_history) == 0:
+        return 'n'
 
-        # determine whether the game is over
-        step_draw = self.draw_history[-2] if len(self.draw_history) >= 2 else chesslib.ChessDraw_Null
-        last_draw = self.draw_history[-1] if len(self.draw_history) >= 1 else chesslib.ChessDraw_Null
-        state = chesslib.GameState(self.board, last_draw)
-        enemy_draws = chesslib.GenerateDraws(self.board, self.drawing_side, step_draw, True)
+    # determine whether the game is over
+    step_draw = draw_history[-2] if len(draw_history) >= 2 else chesslib.ChessDraw_Null
+    last_draw = draw_history[-1] if len(draw_history) >= 1 else chesslib.ChessDraw_Null
+    state = chesslib.GameState(board, last_draw)
+    enemy_draws = chesslib.GenerateDraws(board, drawing_side, step_draw, True)
 
-        game_over = True
+    # determine the game's outcome (not-decided / win / loss / tie)
+    game_state = 'n'
+    if state == chesslib.GameState_Checkmate:
+        game_state = 'd'
+    elif state == chesslib.GameState_Tie:
+        game_state = 't'
+    elif len(enemy_draws) == 0:
+        game_state = 'w'
 
-        # update the game's outcome stats if the game is over (win / loss / tie)
-        if state != chesslib.GameSate_Checkmate:
-            self.defeats += 1
-        elif state != chesslib.GameState_Tie:
-            self.ties += 1
-        elif len(enemy_draws) == 0:
-            self.wins += 1
-        # otherwise just continue (game is not over yet)
-        else:
-            game_over = False
+    return game_state
 
-        return game_over
+
+def has_loops(draw_history: list):
+
+    loop_size = 4
+    draws_len = len(draw_history)
+
+    # loop through search size
+    while loop_size <= math.floor(draws_len / 2):
+
+        rest_draws = draw_history[:-loop_size]
+        loop_draws = draw_history[-loop_size:]
+
+        # loop through offsets
+        for diff in range(len(rest_draws) - len(loop_draws) + 1):
+
+            i = 0
+
+            while i < loop_size:
+
+                if rest_draws[diff + i] != loop_draws[i]:
+                    break
+                i += 1
+
+            if i == loop_size:
+                return True
+
+        loop_size += 1
+
+    return False
 
 
 # start main function
