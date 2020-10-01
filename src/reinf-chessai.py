@@ -33,16 +33,18 @@
 # play against well-known strong chess engines like Stockfish
 # -> determine if the learned behavior is actually successful
 
-
+import os
 import tensorflow as tf
 from tensorflow import keras
-import tensorflow.keras.backend as K
 import chesslib
 import random
 import numpy as np
-import multiprocessing
-import os
 import math
+
+
+# configure tensorflow logging
+import logging
+logging.getLogger('tensorflow').setLevel(logging.FATAL)
 
 
 # training settings
@@ -56,58 +58,54 @@ results_out_dir = os.environ['MODEL_OUT']
 
 def main():
 
+    print("starting chess reinforcement learning")
+
     # init keras model for first iteration
     # TODO: check if this model fits the problem
     best_estimator = keras.Sequential([
         keras.layers.Flatten(input_shape=(14,)),
-        keras.layers.Dense(128, activation='sigmoid'),
-        keras.layers.Dense(128, activation='sigmoid'),
-        keras.layers.Dense(128, activation='sigmoid'),
-        keras.layers.Dense(128, activation='sigmoid'),
-        keras.layers.Dense(128, activation='sigmoid'),
-        keras.layers.Dense(128, activation='sigmoid'),
-        keras.layers.Dense(128, activation='sigmoid'),
-        keras.layers.Dense(128, activation='sigmoid'),
-        keras.layers.Dense(128, activation='sigmoid'),
-        keras.layers.Dense(128, activation='sigmoid'),
+        keras.layers.Dense(128, activation='relu'),
+        keras.layers.Dense(128, activation='relu'),
+        keras.layers.Dense(128, activation='relu'),
+        keras.layers.Dense(128, activation='relu'),
+        keras.layers.Dense(128, activation='relu'),
+        keras.layers.Dense(128, activation='relu'),
+        keras.layers.Dense(128, activation='relu'),
+        keras.layers.Dense(128, activation='relu'),
+        keras.layers.Dense(128, activation='relu'),
+        keras.layers.Dense(128, activation='relu'),
         keras.layers.Dense(1, activation='linear')
     ])
 
-    # compile the model and save it
-    #best_estimator.compile(optimizer="Adam")
-
     epoch = 0
-    best_win_rate = 0.0
+
+    # load 'best' model weights if weights are saved
+    if os.path.isdir(results_out_dir):
+        files = os.listdir(results_out_dir)
+        epoch = -1
+        for file in files:
+            end_index = file.find('.')
+            epoch = max([epoch, int(file[23:end_index])])
+        if epoch > -1:
+            print("loading existing model from epoch ", epoch)
+            load_model_weights(best_estimator, epoch)
+
+    epoch += 1
 
     # do endless training loop
-    # TODO: think of a graceful termination mechanism
-    for k in range(1000):
+    while True:
 
-        # create training sessions
-        mutations = [mutate_model(best_estimator, learning_rate) 
-            for i in range(mutations_count)]
+        print("starting epoch", epoch)
 
-        win_rates_by_id = []
-        for i in range(len(mutations)):
-            win_rate = do_training(i, best_estimator, mutations[i])
-            win_rates_by_id.append((id, win_rate))
-
-        # reinforcement training in parallel
-        #win_rates_by_id = []
-        #with multiprocessing.Pool(processes=parallel_processes) as pool:
-        #    win_rates_by_id = pool.map(TrainingSession.do_training, sessions)
-
-        # pick the best estimator (highest win rate)
-        sorted_win_rates = [x[1] for x in win_rates_by_id.sort()]
-        index = np.argmax(np.array(sorted_win_rates))
-        new_best_win_rate = sorted_win_rates[index]
+        # execute training session
+        mutated_estimator = mutate_model(best_estimator, learning_rate)
+        win_rate = do_training(best_estimator, mutated_estimator)
 
         # only override old estimator if there is an improvement
-        if new_best_win_rate > best_win_rate:
+        if win_rate > 0.5:
 
             # update 'best' cache
-            best_estimator = mutations[index]
-            best_win_rate = new_best_win_rate
+            best_estimator = mutated_estimator
 
             # evaluate estimator vs. stockfish engine
             test_win_rate = test_estimator_vs_stockfish(best_estimator)
@@ -115,30 +113,30 @@ def main():
             # save the estimator to file
             save_model_weights(best_estimator, epoch)
 
-        # print the training progress
-        print("training epoch:", epoch, "training loss:", (1 - best_win_rate), 
-            "test loss:", (1 - test_win_rate), flush=True)
+            # print the training progress
+            print("training epoch:", epoch, "training loss:", (1 - win_rate), 
+                "test loss:", (1 - test_win_rate))
+
+        elif win_rate == 0:
+
+            # update 'best' cache to gain distance from unsuccessful model
+            best_estimator = mutated_estimator
+
+        epoch += 1
 
 
-def test_estimator_vs_stockfish(best_estimator):
-
-    win_rate = 0.0
-
+def test_estimator_vs_stockfish(best_estimator: keras.Model):
     # TODO: implement test logic
+    return 0.0
 
-    return win_rate
 
-
-def mutate_model(orig_model: keras.Model, learning_rate):
+def mutate_model(orig_model: keras.Model, learning_rate: float):
 
     # clone the given model
     model = tf.keras.models.clone_model(orig_model)
 
     # get the model's weights
     weights = model.get_weights()
-
-    print("updating weights")
-    print(len(weights))
 
     for i in range(len(weights)):
 
@@ -166,34 +164,42 @@ def mutate_model(orig_model: keras.Model, learning_rate):
     return model
 
 
-def save_model(model):
+def save_model(model: keras.Model):
 
     # serialize model to JSON
     model_json = model.to_json()
-    with open("chess-ai-model.json", "w") as json_file:
+    file_path = os.path.join(results_out_dir, "chess-ai-model.json")
+    with open(file_path, "w") as json_file:
         json_file.write(model_json)
 
 
-def save_model_weights(model, epoch):
+def save_model_weights(model: keras.Model, epoch: int):
 
     # serialize weights to HDF5
-    out_file_path = "chess-ai-model-weights-{}.h5".format(epoch)
-    model.save_weights(out_file_path)
+    file_name = "chess-ai-model-weights-{}.h5".format(epoch)
+    file_path = os.path.join(results_out_dir, file_name)
+    model.save_weights(file_path)
 
 
-def do_training(id, best_estimator: keras.Model, mutated_estimator: keras.Model):
+def load_model_weights(model: keras.Model, epoch: int):
 
-    print("start training session #", id)
+    # serialize weights to HDF5
+    file_name = "chess-ai-model-weights-{}.h5".format(epoch)
+    file_path = os.path.join(results_out_dir, file_name)
+    model.load_weights(file_path)
+
+
+def do_training(best_estimator: keras.Model, mutated_estimator: keras.Model):
 
     wins = 0
     ties = 0
     defeats = 0
 
-    # play several training games
-    for i in range(1000):
+    # play one game each on white and black side
+    for training_side in range(2):
 
         # play one game
-        game_state = play_chessgame(best_estimator, mutated_estimator)
+        game_state = play_chessgame(best_estimator, mutated_estimator, training_side)
 
         # apply the game's outcome
         if game_state == 'w':
@@ -203,27 +209,21 @@ def do_training(id, best_estimator: keras.Model, mutated_estimator: keras.Model)
         elif game_state == 't':
             ties += 1
 
-        # print_progress(i, 1000)
-        print("game", i)
-
     # determine the win rate
     win_rate = 1.0 * wins / (wins + defeats) if (wins + defeats) > 0 else 0.0
-
-    print("end training session #", id, " win rate:", win_rate)
-    return (id, win_rate)
+    return win_rate
 
 
-def play_chessgame(best_estimator: keras.Model, mutated_estimator: keras.Model):
+def play_chessgame(best_estimator: keras.Model, mutated_estimator: keras.Model, training_side):
 
     # reset it chess game variables
     board = chesslib.ChessBoard_StartFormation()
     drawing_side = 0
     draw_history = []
     game_state = 'n'
-
-    # determine side selection
-    training_side = random.randint(0, 1)
     round = 1.0
+
+    print(chesslib.VisualizeBoard(board))
 
     # play until the game is over
     while True:
@@ -240,11 +240,13 @@ def play_chessgame(best_estimator: keras.Model, mutated_estimator: keras.Model):
         predictions = model.predict(vector)
         best_draw = draws[np.argmax(predictions)]
 
-        # apply the draw to the chessboard
+        # apply the draw to the chessboard and update the draw history
         board = chesslib.ApplyDraw(board, best_draw)
-
-        # update game variables
         draw_history.append(best_draw)
+
+        # print the board
+        print(chesslib.VisualizeDraw(best_draw))
+        print(chesslib.VisualizeBoard(board))
 
         # exit if the game is over
         game_state = get_game_state(board, draw_history, drawing_side)
@@ -261,7 +263,7 @@ def play_chessgame(best_estimator: keras.Model, mutated_estimator: keras.Model):
     return game_state
 
 
-def get_game_state(board, draw_history, drawing_side):
+def get_game_state(board: np.array, draw_history: list, drawing_side: int):
 
     # don't compute this function if the board is still in start formation
     if len(draw_history) == 0:
@@ -315,5 +317,5 @@ def has_loops(draw_history: list):
     return False
 
 
-# start main function
+# start training
 main()
