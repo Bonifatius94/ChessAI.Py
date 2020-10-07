@@ -59,17 +59,21 @@ docker-compose -f keras-test-compose.yml up
 The reinforcement learning approach was finally put to work and the model did somewhat train. But the given computational power was simply not enough to train a random player's model to grandmaster elo from scratch. So there need to be made some adjustments to the training and/or network model.
 
 #### Further Steps / Adjustments / Additional Approaches
-1) Start with a pre-trained network
+
+*1) Start with a pre-trained network*
 - use the already existing win rate cache (SQLite) from the ChessAI.CS project in order to train a model to predict the win rates of draws (supervised learning; data types should be compatible as ChessLib.Py is a clone of ChessAI.CS's Chess.Lib project)
 - info: the win rate cache consists of the results of ~ 360000 human grandmaster games, so it's biased data
 - after supervised learning, put that pre-trained win rate prediction model as initial model for training and remove the human bias by reinforcement learning and lots of self-play (be careful with the learning rate!!!)
 - the training should be a lot more efficient by now as the AI is not playing randomly
 - additionally implement ideas of 4) to add more variation at draw selection
-2) Make network model adjustments
+
+*2) Make network model adjustments*
 - test if the training results get better when using a smaller network (not 10 hidden layers anymore ...)
-3) Use a draw cache like in AlphaZero's chess approach
+
+*3) Use a draw cache like in AlphaZero's chess approach*
 - don't train a model that predicts the strength of chess draws
 - cache the chess game tree of known 'best' draws and adjust the win rate of those draws during reinforcement training (this approach can probably start from scratch)
-4) Improve the draw selection variation during training
+
+*4) Improve the draw selection variation during training*
 - maybe think of dropout layers
 - use a random variation of e.g. 2% on draw selection
