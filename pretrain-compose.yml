@@ -27,7 +27,7 @@ services:
       context: .
 
     # start the reinf-chessai.py script on startup using the entrypoint
-    command: mutate-test.py
+    command: pretrain-chessai.py
 
     environment:
       MODEL_OUT: "/home/ai/model"

@@ -27,6 +27,10 @@ werkzeug==1.0.1
 wrapt==1.12.1
 zipp==3.1.0
 
+# pre-training data tools
+#sqlite3
+requests
+
 # deep reinforcement learning
 #gym
 #keras-rl

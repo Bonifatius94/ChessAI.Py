@@ -126,6 +126,7 @@ def main():
 
 
 def test_estimator_vs_stockfish(best_estimator: keras.Model):
+
     # TODO: implement test logic
     return 0.0
 
@@ -232,7 +233,7 @@ def play_chessgame(best_estimator: keras.Model, mutated_estimator: keras.Model, 
         last_draw = draw_history[-1] if len(draw_history) > 0 else chesslib.ChessDraw_Null
         draws = chesslib.GenerateDraws(board, drawing_side, last_draw, True)
         possible_boards = np.array([chesslib.ApplyDraw(board, draw) for draw in draws])
-        fill_column = np.expand_dims(np.full(len(draws), last_draw), axis=1)
+        fill_column = np.expand_dims(draws, axis=1)
         vector = np.append(possible_boards, fill_column, axis=1)
 
         # determine the best of those draws using the estimator
