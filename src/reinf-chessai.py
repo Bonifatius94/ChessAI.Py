@@ -51,7 +51,7 @@ logging.getLogger('tensorflow').setLevel(logging.FATAL)
 mutations_count = 1000
 training_epoch = 100
 parallel_processes = 16
-learning_rate = 0.01
+learning_rate = 10e-4
 results_out_dir = os.environ['MODEL_OUT']
 # TODO: make those settings parameterizable with program args
 
@@ -80,12 +80,16 @@ def main():
     epoch = 0
 
     # load 'best' model weights if weights are saved
-    if os.path.isdir(results_out_dir):
+    pretrained_weights_file = os.path.join(results_out_dir, 'pre_trained_weights.h5')
+    if os.path.exists(pretrained_weights_file):
+        best_estimator.load_weights(pretrained_weights_file)
+    elif os.path.isdir(results_out_dir):
         files = os.listdir(results_out_dir)
         epoch = -1
         for file in files:
-            end_index = file.find('.')
-            epoch = max([epoch, int(file[23:end_index])])
+            if (file.startswith('chess-ai-model-weights')):
+                end_index = file.find('.')
+                epoch = max([epoch, int(file[23:end_index])])
         if epoch > -1:
             print("loading existing model from epoch ", epoch)
             load_model_weights(best_estimator, epoch)
@@ -117,10 +121,10 @@ def main():
             print("training epoch:", epoch, "training loss:", (1 - win_rate), 
                 "test loss:", (1 - test_win_rate))
 
-        elif win_rate == 0:
+        # elif win_rate == 0:
 
-            # update 'best' cache to gain distance from unsuccessful model
-            best_estimator = mutated_estimator
+        #     # update 'best' cache to gain distance from unsuccessful model
+        #     best_estimator = mutated_estimator
 
         epoch += 1
 
