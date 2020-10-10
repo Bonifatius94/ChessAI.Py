@@ -4,7 +4,7 @@
 This project offers experimental chess AI approaches meant for learning purposes.
 
 ## Disclaimer
-There is still work in progess ... The AI training algorithm does not work just yet. The first approach should be valid though as AlphaZero is doing quite similar stuff to great success.
+There is still work in progess ...
 
 ## Main Idea
 Evaluating a chess position accurately is very difficult. Just summarizing static values per chess piece on the board (like e.g. in [Shannon's approach 1949](http://archive.computerhistory.org/projects/chess/related_materials/text/2-0%20and%202-1.Programming_a_computer_for_playing_chess.shannon/2-0%20and%202-1.Programming_a_computer_for_playing_chess.shannon.062303002.pdf)) is often not enough. The computation of such scores also heavily depends on an accurate estimator that takes positional metadata in consideration (e.g. how pieces cover each other or whether there are weaknesses like double peasant, etc.). Using a good heuristic estimator may also massively speed up the chess AI's best draw computation in comparison to computation-heavy game tree algorithms like minimax (several milliseconds vs. several minutes).
@@ -44,3 +44,36 @@ Here is a small TensorFlow Keras sample for demonstration purposes. This code tr
 # start the keras deep learning sample taken from https://www.tensorflow.org/tutorials/keras/classification
 docker-compose -f keras-test-compose.yml up
 ```
+
+## Experiment Results
+### Reinforcement Learning Approach:
+#### Results summarization
+
+- creation of TF Keras models and useful techniques with Keras
+- creation of a custom weight update function
+- implementation of an algorithm to make two Keras estimation functions play against each other
+- gameplay training result evaulation (determinating when the game is over, which player won, loop detection, win rate computation, etc.)
+- achievement of first training results, players were not able to win in a reasonable time because of random drawing, draw selection is deterministic -> less training progress due to missing variation
+
+#### Resume
+The reinforcement learning approach was finally put to work and the model did somewhat train. But the given computational power was simply not enough to train a random player's model to grandmaster elo from scratch. So there need to be made some adjustments to the training and/or network model.
+
+#### Further Steps / Adjustments / Additional Approaches
+
+*1) Start with a pre-trained network*
+- use the already existing win rate cache (SQLite) from the ChessAI.CS project in order to train a model to predict the win rates of draws (supervised learning; data types should be compatible as ChessLib.Py is a clone of ChessAI.CS's Chess.Lib project)
+- info: the win rate cache consists of the results of ~ 360000 human grandmaster games, so it's biased data
+- after supervised learning, put that pre-trained win rate prediction model as initial model for training and remove the human bias by reinforcement learning and lots of self-play (be careful with the learning rate!!!)
+- the training should be a lot more efficient by now as the AI is not playing randomly
+- additionally implement ideas of 4) to add more variation at draw selection
+
+*2) Make network model adjustments*
+- test if the training results get better when using a smaller network (not 10 hidden layers anymore ...)
+
+*3) Use a draw cache like in AlphaZero's chess approach*
+- don't train a model that predicts the strength of chess draws
+- cache the chess game tree of known 'best' draws and adjust the win rate of those draws during reinforcement training (this approach can probably start from scratch)
+
+*4) Improve the draw selection variation during training*
+- maybe think of dropout layers
+- use a random variation of e.g. 2% on draw selection
