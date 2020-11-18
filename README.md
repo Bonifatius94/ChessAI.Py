@@ -8,8 +8,8 @@ There is still work in progess ...
 
 ## Main Idea
 Evaluating a chess position accurately is very difficult. Just summarizing static values 
-per chess piece on the board (like e.g. in [Shannon's approach 1949]
-(http://archive.computerhistory.org/projects/chess/related_materials/text/2-0%20and%202-1.Programming_a_computer_for_playing_chess.shannon/2-0%20and%202-1.Programming_a_computer_for_playing_chess.shannon.062303002.pdf))
+per chess piece on the board (like e.g. in 
+[Shannon's approach 1949](http://archive.computerhistory.org/projects/chess/related_materials/text/2-0%20and%202-1.Programming_a_computer_for_playing_chess.shannon/2-0%20and%202-1.Programming_a_computer_for_playing_chess.shannon.062303002.pdf))
 is often not enough. The computation of such scores also heavily depends on an accurate 
 estimator that takes positional metadata in consideration (e.g. how pieces cover each 
 other or whether there are weaknesses like double peasant, etc.). Using a good heuristic 
