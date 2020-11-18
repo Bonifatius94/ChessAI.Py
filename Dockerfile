@@ -12,5 +12,5 @@ ADD ./src /home/ai/src
 WORKDIR /home/ai/src
 
 # configure entrypoint
-ADD ./entrypoint.sh /entrypoint.sh
-ENTRYPOINT ["/entrypoint.sh"]
+#ADD ./entrypoint.sh /entrypoint.sh
+#ENTRYPOINT ["/entrypoint.sh"]
