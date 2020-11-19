@@ -88,7 +88,7 @@ def do_training():
 
     # compile the network
     model.compile(
-        optimizer=keras.optimizers.SGD(10e-8),
+        optimizer=keras.optimizers.SGD(10e-4),
         loss='mean_squared_error'
     )
 

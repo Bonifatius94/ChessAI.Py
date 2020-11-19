@@ -62,23 +62,28 @@ Build the training environment and run the training scripts using Docker:
 docker build . -t "chessai-train"
 
 # run pre-training script
-docker run -v $PWD/../model_out:/home/ai/model \
+docker run -v $PWD/src:/home/ai/src \
+           -v $PWD/../model_out:/home/ai/model \
            -e MODEL_OUT=/home/ai/model \
            chessai-train pyhton3 pretrain-chessai.py
 
 # run reinforcement learning script
-docker run -v $PWD/../model_out:/home/ai/model \
+docker run -v $PWD/src:/home/ai/src \
+           -v $PWD/../model_out:/home/ai/model \
            -e MODEL_OUT=/home/ai/model \
            chessai-train pyhton3 reinf-chessai.py
 
 # run gameplay test script
-docker run chessai-train python3 gameplay-test.py
+docker run -v $PWD/src:/home/ai/src \
+           chessai-train python3 gameplay-test.py
 
 # run weights mutation test script
-docker run chessai-train python3 mutate-test.py
+docker run -v $PWD/src:/home/ai/src \
+           chessai-train python3 mutate-test.py
 
 # run keras test script (deep learning, classification task)
-docker run chessai-train python3 keras-test.py
+docker run -v $PWD/src:/home/ai/src \
+           chessai-train python3 keras-test.py
 ```
 
 ## Experiment Results
