@@ -137,6 +137,10 @@ def test_estimator_vs_stockfish(best_estimator: keras.Model):
 
 def mutate_model(orig_model: keras.Model, learning_rate: float):
 
+    # TODO: re-initialize each weight at a probability of learning rate
+    # -> weights don't change too rapidly
+    # -> single weights might change a lot though
+
     # clone the given model
     model = tf.keras.models.clone_model(orig_model)
 
