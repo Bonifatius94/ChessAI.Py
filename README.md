@@ -16,31 +16,14 @@ other or whether there are weaknesses like double peasant, etc.). Using a good h
 estimator may also massively speed up the chess AI's best draw computation in comparison 
 to computation-heavy game tree algorithms like minimax (several milliseconds vs. several minutes).
 
-### Conceptional Approach No.1: Reinforcement Learning (WIP)
-For training a heuristic chess score function there may be used a reinforcement learning technique. 
-The training algorithm stores the 'best score estimator' that is mutated each training iteration. 
-The actual training consists of the mutated score functions playing against the currently best score 
-function for several times (training phase iterations). After a training iteration the best scoring 
-functions are picked using the win rate. Those functions get transformed into the new "best score 
-estimator" for the next training iteration. 
+### Deep Learning: Imitate Elaborated Gameplay
+Extract grandmaster gameplay data from common sources and learn the draws played by real high-elo players. The training may result into a good artificial chess player and should at least prepare a neuronal network for further refinement.
 
-Inbetween the trainging phases there may also be an evaluation phase performed from time to time 
-by playing against well-known strong chess engines like e.g. stockfish. This ensures that there 
-is no specialization on a specific playstyle that may not be as relevant in real chess games.
+### Reinforcement Learning: Monte-Carlo Learning
+Use the Monte-Carlo techniques to evaluate good and bad actions with lots of self-play. After each game played, compute estimated reward scores for each (state, action) tuple from the game's draw history.
 
-Parameters of the scoring function are a set of tuples consisting of chess draws and their 
-resulting chess positions after applying the draw. The tuples may be modeled as 1D numpy arrays 
-of size 14 and datatype np.uint64 (112 bytes) in which the chess draw is just appended to the 
-chess board (consisting of 13 uint64 values) as 14th value.
-
-The scoring function itself uses several fully-connected foreward neuronal layers. The first 
-approach would be 7 layers with 64 neurons. The resulting score is a normalized floating-point 
-value between 0 and 1.
-
-### Conceptional Approach No.2: Markow Chain
-Markow Chain that backpropagates possible future game situations to evaluate a score, so the scoring 
-function takes the game tree in consideration. (actual implementation still unclear, it's still just 
-a vague idea)
+### Reinforcement Learning: Deep Q Learning
+Implement Deep Q Learning to determine the goodness of chess draws. This can be used as an alternative to Monte-Carlo results.
 
 ## How to Build / Train
 Install git and docker, pull the source code and set up the repository:
