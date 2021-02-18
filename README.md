@@ -95,20 +95,19 @@ from scratch. So there need to be made some adjustments to the training and/or n
   is a clone of ChessAI.CS's Chess.Lib project)
 - info: the win rate cache consists of the results of ~ 360000 human grandmaster games, so it's 
   biased data
+
+- for pre-training, transform the chess board into 2D maps with channels for each piece type and color
+  like in the bitboard representation, but don't use the bitboards directly. Instead use a shape like (batch_size, 8, 8, 13)
+  and assign each bit on the bitboards as 1 or 0 (float32).
+- put chess draws as 2D maps (1 channel for in-pos, 1 channel for out-pos) and append those to the chess boards
+- those transformations should allow the usage of Conv2D layers to extract 2D chess position features
+- add a rating component learning the win rates of common chess positions
+
 - after supervised learning, put that pre-trained win rate prediction model as initial model for 
   training and remove the human bias by reinforcement learning and lots of self-play (be careful 
   with the learning rate!!!)
 - the training should be a lot more efficient by now as the AI is not playing randomly
-- additionally implement ideas of 4) to add more variation at draw selection
 
-*2) Make network model adjustments*
-- test if the training results get better when using a smaller network (not 10 hidden layers anymore ...)
-
-*3) Use a draw cache like in AlphaZero's chess approach*
-- don't train a model that predicts the strength of chess draws
-- cache the chess game tree of known 'best' draws and adjust the win rate of those draws during 
-  reinforcement training (this approach can probably start from scratch)
-
-*4) Improve the draw selection variation during training*
-- maybe think of dropout layers
-- use a random variation of e.g. 2% on draw selection
+*2) Add reinforcement learning approaches like Deep Q, Monte Carlo, A2C, Policy Gradient, ...*
+- think of the best ways and techinques that suit the chess game
+- most likely re-use the pre-trained 2D feature extractor -> no need to learn the game from scratch
