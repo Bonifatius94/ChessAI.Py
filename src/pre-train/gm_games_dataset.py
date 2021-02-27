@@ -58,21 +58,16 @@ def prepare_pandas_data(pd_winrates: pd.DataFrame):
     # convert the dataframe into SARS data slices (state-action-reward-nextstate)
     states = [bitboards_from_hash(x) for x in pd_winrates['BoardBeforeHash']]
     actions = pd_winrates['DrawHashNumeric']
-    #actions = [int(x) for x in pd_winrates['DrawHashNumeric']]
-    #compact_actions = [compact_draw_from_hash(x) for x in pd_winrates['DrawHashNumeric']]
     rewards = pd_winrates['WinRate']
 
     # combine the SARS data slices to a dataframe
     pd_winrates_sars = pd.DataFrame()
     pd_winrates_sars['states'] = states
     pd_winrates_sars['actions'] = actions
-    #pd_winrates_sars['compact_actions'] = compact_actions
     pd_winrates_sars['rewards'] = rewards
 
     next_states = pd_winrates_sars.apply(lambda x: chesslib.ApplyDraw(x[0], x[1]), axis=1)
     pd_winrates_sars['next_states'] = next_states
-
-    print(pd_winrates_sars.head())
 
     return pd_winrates_sars
 
@@ -87,27 +82,31 @@ def compact_draw_from_hash(draw_hash: str):
 
 def create_tf_dataset(pd_sars_winrates: pd.DataFrame, batch_size: int, train: bool):
 
-    print(pd_sars_winrates.dtypes)
+    # convert the pandas dataframe's columns to tensor slices
+    states = tf.convert_to_tensor(np.array(
+        [np.squeeze(np.array(x)) for x in pd_sars_winrates['states']]), dtype=tf.uint64)
+    actions = tf.convert_to_tensor(np.array(pd_sars_winrates['actions']))
+    rewards = tf.convert_to_tensor(np.array(pd_sars_winrates['rewards']))
+    next_states = tf.convert_to_tensor(np.array(
+        [np.squeeze(np.array(x)) for x in pd_sars_winrates['next_states']]), dtype=tf.uint64)
 
-    # convert the pandas dataframe into a tensor dataset
-    print(type(pd_sars_winrates['states']))
-    states =  pd_sars_winrates['states'].apply(np.array)
-    np_states = states.apply(np.array)
-    print(states.head(), np_states)
-    dataset = tf.data.Dataset.from_tensor_slices(pd_sars_winrates.values)
+    # create a dataset from the tensor slices -> SARS tuples
+    dataset = tf.data.Dataset.from_tensor_slices(
+        tensors=(states, actions, rewards, next_states))
 
-    # map the chesslib bitboards to convolutable 8x8x7 feature maps
-    dataset = dataset.map(lambda x: (
-        chessboard_to_2d_feature_maps(x[0]),    # state
-        x[1],                                   # action
-        x[2],                                   # reward
-        chessboard_to_2d_feature_maps(x[3])))   # next state
+    # convert the chesslib bitboards to compressed, convolutable 8x8x7 feature maps
+    dataset = dataset.map(lambda state, action, reward, next_state: (
+        chessboard_to_2d_feature_maps(state),
+        action,
+        reward,
+        chessboard_to_2d_feature_maps(next_state)
+    ))
 
     # batch the data properly
     dataset = dataset.batch(batch_size)
 
     # shuffle the dataset when creating a training dataset
-    if train: dataset = dataset.shuffle(5000)
+    if train: dataset = dataset.shuffle(50)
 
     return dataset
 
@@ -166,12 +165,19 @@ if __name__ == '__main__':
 
     # test single chessboard tensor conversion
     start_board = chesslib.ChessBoard_StartFormation()
-    compressed_start_board = chessboard_to_2d_feature_maps(start_board)
-    print(compressed_start_board.numpy())
+    conv_start_board = chessboard_to_2d_feature_maps(start_board)
+    print(conv_start_board.numpy())
 
-    # # test loading training and eval datasets
-    # batch_size = 32
-    # train_dataset, eval_dataset = load_datasets(batch_size)
+    # test loading training and eval datasets
+    batch_size = 32
+    train_dataset, eval_dataset = load_datasets(batch_size)
+    print(train_dataset)
+    print(eval_dataset)
 
-    # print(train_dataset)
-    # print(eval_dataset)
+    # try to print the first batch item of each dataset
+    train_iterator = iter(train_dataset)
+    first_item = train_iterator.next()
+    print(first_item)
+    eval_iterator = iter(eval_dataset)
+    first_item = eval_iterator.next()
+    print(first_item)
