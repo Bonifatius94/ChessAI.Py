@@ -161,6 +161,7 @@ def _chessboard_to_feature_maps(bitboards):
     return feature_maps
 
 
+# this is just a test script making sure all functions work fine
 if __name__ == '__main__':
 
     # test single chessboard tensor conversion

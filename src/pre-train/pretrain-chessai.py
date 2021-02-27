@@ -7,112 +7,212 @@ import tensorflow as tf
 from tensorflow import keras
 import chesslib
 
+from gm_games_dataset import load_datasets
 
-training_input = []
-training_labels = []
-test_input = []
-test_labels = []
+
+class ChessFeatureExtractionModel(tf.keras.Model):
+
+    def __init__(self, params: dict):
+
+        # call super constructor and store overloaded parameters
+        super(ChessFeatureExtractionModel, self).__init__()
+        self.params = params
+
+        # create model layers
+        self.nn_conv_1 = tf.keras.layers.Conv2D(16, (8, 8), strides=1, padding='same', activation='relu')
+        self.nn_conv_2 = tf.keras.layers.Conv2D(16, (6, 6), strides=1, padding='same', activation='relu')
+        self.nn_conv_3 = tf.keras.layers.Conv2D(16, (5, 5), strides=1, padding='same', activation='relu')
+        self.nn_conv_4 = tf.keras.layers.Conv2D(16, (4, 4), strides=1, padding='same', activation='relu')
+        self.nn_conv_5 = tf.keras.layers.Conv2D(16, (3, 3), strides=1, padding='same', activation='relu')
+        self.nn_conv_6 = tf.keras.layers.Conv2D(16, (3, 3), strides=1, padding='same', activation='relu')
+        self.nn_flatten_output = tf.keras.layers.Flatten()
+        self.nn_dense_output = tf.keras.layers.Dense(units=512)
+
+
+    def call(self, inputs):
+
+        x = inputs
+        x = self.nn_conv_1(x)
+        x = self.nn_conv_2(x)
+        x = self.nn_conv_3(x)
+        x = self.nn_conv_4(x)
+        x = self.nn_conv_5(x)
+        x = self.nn_conv_6(x)
+        x = self.nn_flatten_output(x)
+        x = self.nn_dense_output(x)
+        return x
+
+
+# class ChessPretrainDraws(tf.keras.Model):
+
+#     def __init__(self, params: dict):
+
+#         # call super constructor and store overloaded parameters
+#         super(ChessPretrainDraws, self).__init__()
+#         self.params = params
+
+#         # create model layers
+#         self.nn_feature_ext = ChessFeatureExtractionModel()
+
+
+
+class ChessRatingModel(tf.keras.Model):
+
+    def __init__(self, params: dict):
+
+        # call super constructor and store overloaded parameters
+        super(ChessRatingModel, self).__init__()
+        self.params = params
+
+        # create model layers
+        self.nn_feature_ext = ChessFeatureExtractionModel(params)
+        self.nn_dense_1 = tf.keras.layers.Dense(512)
+        self.nn_dense_2 = tf.keras.layers.Dense(256)
+        self.nn_dense_3 = tf.keras.layers.Dense(128)
+        self.nn_dense_4 = tf.keras.layers.Dense(64)
+        self.nn_dense_output = tf.keras.layers.Dense(1)
+
+
+    def call(self, inputs):
+
+        x = inputs
+        x = self.nn_feature_ext(x)
+        x = self.nn_dense_1(x)
+        x = self.nn_dense_2(x)
+        x = self.nn_dense_3(x)
+        x = self.nn_dense_4(x)
+        x = self.nn_dense_output(x)
+        return x
+
+
+class TrainingSession(object):
+
+    def __init__(self, params: dict):
+
+        super(TrainingSession, self).__init__()
+        self.params = params
+
+        # create training and evaluation datasets
+        self.train_dataset, self.eval_dataset = load_datasets(params['batch_size'])
+
+        # create model to be trained
+        self.model = ChessRatingModel(params)
+        self.model.build((None, 8, 8, 7))
+        print(self.model.summary())
+
+        # create optimizer and loss func
+        self.optimizer = tf.optimizers.SGD(learning_rate=self.params['learn_rate'])
+        self.loss_func = tf.losses.MeanSquaredError()
+
+        # create model checkpoints
+        self.checkpoint = tf.train.Checkpoint(optimizer=self.optimizer, net=self.model)
+        self.manager = tf.train.CheckpointManager(self.checkpoint, './models/pretrain', max_to_keep=5)
+
+        # create logging metrics
+        self.train_loss = tf.keras.metrics.Mean(name="train_loss")
+        self.train_acc = tf.keras.metrics.Mean(name="train_acc")
+        self.eval_loss = tf.keras.metrics.Mean(name="eval_loss")
+        self.eval_acc = tf.keras.metrics.Mean(name="eval_acc")
+
+        # create TensorBoard summary writer
+        self.train_summary_writer = tf.summary.create_file_writer('./logs/train')
+        self.eval_summary_writer = tf.summary.create_file_writer('./logs/eval')
+
+
+    def run_training(self):
+
+        step = 0
+
+        # loop through all epochs
+        for epoch in range(self.params['epochs']):
+
+            print('starting training epoch', epoch)
+
+            # loop through all batches on the training dataset
+            for batch_data in self.train_dataset:
+                self.train_step(batch_data)
+                step += 1
+
+                # log training progress and metrics
+                if step % self.params['log_interval'] == 0:
+                    print('training progress:', int((step % self.params['total_train_batches']) / self.params['total_train_batches'] * 100), '%')
+                    with self.train_summary_writer.as_default():
+                        print('train results:', 'acc={}, loss={}'.format(self.train_acc.result(), self.train_loss.result()))
+                        tf.summary.scalar('train_acc', self.train_acc.result(), step=step)
+                        tf.summary.scalar('train_loss', self.train_loss.result(), step=step)
+                        self.train_acc.reset_states()
+                        self.train_loss.reset_states()
+
+            # loop through all batches on the evaluation dataset
+            for batch_data in self.eval_dataset:
+                self.eval_step(batch_data)
+
+            with self.eval_summary_writer.as_default():
+                print('eval results:', 'acc={}, loss={}'.format(self.eval_acc.result(), self.eval_loss.result()))
+                tf.summary.scalar('eval_acc', self.eval_acc.result(), step=step)
+                tf.summary.scalar('eval_loss', self.eval_loss.result(), step=step)
+                self.eval_acc.reset_states()
+                self.eval_loss.reset_states()
+
+            # store the model weights using the checkpoint manager
+            self.manager.save(epoch)
+
+
+    @tf.function
+    def train_step(self, batch_data):
+
+        # unwrap batch data as SARS data
+        states, actions, rewards, next_states = batch_data
+
+        with tf.GradientTape() as tape:
+
+            # TODO: figure out if next states should rather be used for prediction
+
+            # predict ratings and compute loss
+            pred_ratings = self.model(next_states)
+            label_ratings = rewards
+            loss = self.loss_func(y_true=label_ratings, y_pred=pred_ratings)
+
+        # compute gradients and optimize the model
+        gradients = tape.gradient(loss, self.model.trainable_variables)
+        self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
+
+        # write loss and accuracy to the metrics cache
+        self.train_loss(loss)
+        self.train_acc(1 - tf.math.sqrt(loss))
+
+
+    @ tf.function
+    def eval_step(self, batch_data):
+
+        # unwrap batch data as SARS data
+        states, actions, rewards, next_states = batch_data
+
+        # predict ratings and compute loss
+        pred_ratings = self.model(next_states)
+        label_ratings = rewards
+        loss = self.loss_func(y_true=label_ratings, y_pred=pred_ratings)
+
+        # write loss and accuracy to the metrics cache
+        self.eval_loss(loss)
+        self.eval_acc(1 - tf.math.sqrt(loss))
 
 
 def main():
 
-    # load training data and train the model
-    load_training_data()
-    do_training()
+    params = {
+        'batch_size': 32,
+        'learn_rate': 0.01,
+        'epochs': 1000,
+
+        'log_interval': 100,
+        'total_train_batches': 2774,
+    }
+
+    session = TrainingSession(params)
+    session.run_training()
 
 
-def load_training_data():
-
-    global training_input
-    global training_labels
-    global test_input
-    global test_labels
-
-    # download the training data set
-    file = 'win_rates.db'
-    url = 'https://raw.githubusercontent.com/Bonifatius94/ChessAI.CS/master/Chess.AI/Data/win_rates.db'
-    req = requests.get(url, allow_redirects=True)
-    open(file, 'wb').write(req.content)
-
-    # query training data
-    conn = sqlite3.connect(file)
-    cursor = conn.cursor()
-    cursor.execute('SELECT BoardBeforeHash, DrawHashNumeric, WinRate FROM WinRateInfo WHERE AnalyzedGames >= 10')
-    win_rates_cache = cursor.fetchall()
-    conn.close()
-
-    # shuffle win rates for training randomization
-    win_rates_cache = np.array(win_rates_cache)
-    np.random.shuffle(win_rates_cache)
-
-    # init label dataset
-    label_dataset = np.array([x[2] for x in win_rates_cache], dtype=np.float)
-    print(label_dataset)
-
-    # init input dataset
-    boards = np.array([
-        chesslib.ApplyDraw(
-            chesslib.Board_FromHash(np.frombuffer(bytes.fromhex(x[0]), dtype=np.uint8)),
-            int(x[1]))
-        for x in win_rates_cache],
-        dtype=np.uint64)
-    draws = np.array(win_rates_cache[:, 1], np.uint64)
-    draws = np.expand_dims(draws, axis=1)
-    input_dataset = np.append(boards, draws, axis=1)
-
-    # assign datasets and labels
-    separator = int(input_dataset.shape[0] * 0.9)
-    training_input = input_dataset[:separator]
-    training_labels = label_dataset[:separator]
-    test_input = input_dataset[separator:]
-    test_labels = label_dataset[separator:]
-
-
-def do_training():
-
-    # init network to be trained
-    model = keras.Sequential([
-        keras.layers.Flatten(input_shape=(14,)),
-        keras.layers.Dense(128, activation='relu', kernel_initializer='zeros', bias_initializer='zeros'),
-        keras.layers.Dense(128, activation='relu', kernel_initializer='zeros', bias_initializer='zeros'),
-        keras.layers.Dense(128, activation='relu', kernel_initializer='zeros', bias_initializer='zeros'),
-        keras.layers.Dense(128, activation='relu', kernel_initializer='zeros', bias_initializer='zeros'),
-        keras.layers.Dense(128, activation='relu', kernel_initializer='zeros', bias_initializer='zeros'),
-        keras.layers.Dense(128, activation='relu', kernel_initializer='zeros', bias_initializer='zeros'),
-        keras.layers.Dense(128, activation='relu', kernel_initializer='zeros', bias_initializer='zeros'),
-        keras.layers.Dense(128, activation='relu', kernel_initializer='zeros', bias_initializer='zeros'),
-        keras.layers.Dense(128, activation='relu', kernel_initializer='zeros', bias_initializer='zeros'),
-        keras.layers.Dense(128, activation='relu', kernel_initializer='zeros', bias_initializer='zeros'),
-        keras.layers.Dense(1, activation='linear')
-    ])
-
-    # compile the network
-    model.compile(
-        optimizer=keras.optimizers.SGD(10e-4),
-        loss='mean_squared_error'
-    )
-
-    min_loss = float('inf')
-    timeout = 10
-
-    # do training until there is no further progress
-    while timeout:
-
-        # do the training
-        model.fit(training_input, training_labels, epochs=10, batch_size=100)
-
-        # evaluate the training quality
-        eval_loss = round(model.evaluate(test_input, test_labels, verbose=2), 4)
-
-        # export the new model weights if there was made an improvement
-        if eval_loss < min_loss:
-
-            model.save_weights('/home/ai/model/pre_trained_weights.h5')
-            min_loss = eval_loss
-            timeout = 10
-
-        timeout -= 1
-
-
-# start training
-main()
+# launch training
+if __name__ == '__main__':
+    main()
