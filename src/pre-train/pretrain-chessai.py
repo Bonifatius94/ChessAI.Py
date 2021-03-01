@@ -43,17 +43,45 @@ class ChessFeatureExtractionModel(tf.keras.Model):
         return x
 
 
-# class ChessPretrainDraws(tf.keras.Model):
+class ChessDrawGenerator(tf.keras.Model):
 
-#     def __init__(self, params: dict):
+    def __init__(self, params: dict):
 
-#         # call super constructor and store overloaded parameters
-#         super(ChessPretrainDraws, self).__init__()
-#         self.params = params
+        # call super constructor and store overloaded parameters
+        super(ChessDrawGenerator, self).__init__()
+        self.params = params
 
-#         # create model layers
-#         self.nn_feature_ext = ChessFeatureExtractionModel()
+        # create model input layers
+        self.nn_feature_ext = ChessFeatureExtractionModel()
+        self.nn_start_pos_embedding = tf.keras.layers.Embedding(64, 512)
 
+        # create LSTM cells as a stacked RNN layer
+        self.nn_lstm_1 = tf.keras.layers.LSTMCell(units=512)
+        self.nn_lstm_2 = tf.keras.layers.LSTMCell(units=512)
+        self.nn_lstm_3 = tf.keras.layers.LSTMCell(units=512)
+        self.nn_stacked_lstm_cells = tf.keras.layers.StackedRNNCells(
+            cells=[self.nn_lstm_1, self.nn_lstm_2, self.nn_lstm_3])
+
+        # create model output layers
+        self.nn_flatten_output = tf.keras.layers.Flatten()
+        self.nn_dense_output = tf.keras.layers.Dense(64)
+
+
+    def call(self, chessboard, drawing_pos):
+
+        # initialize LSTM state ('show' to board to the LSTM)
+        board_features = self.nn_feature_ext(chessboard)
+        zero_state = self.nn_stacked_lstm_cells.get_initial_state(
+            batch_size=self.params['batch_size'], dtype=tf.float32)
+        x, h = self.nn_stacked_lstm_cells(board_features, zero_state)
+
+        # predict a legal draw for the chess piece at the given field position
+        x = self.nn_start_pos_embedding(drawing_pos)
+        x, h = self.nn_stacked_lstm_cells(x, h)
+        x = self.nn_flatten_output(x)
+        target_pos = self.nn_dense_output(x)
+
+        return target_pos
 
 
 class ChessRatingModel(tf.keras.Model):
@@ -100,9 +128,17 @@ class TrainingSession(object):
         self.model.build((None, 8, 8, 7))
         print(self.model.summary())
 
+        # create learning rate decay func
+        self.lr_decay_func = tf.keras.optimizers.schedules.ExponentialDecay(
+            initial_learning_rate=params['learn_rate'],
+            decay_steps = params['total_train_batches'] * params['lr_decay_epochs'],
+            decay_rate = params['lr_decay_rate'],
+            staircase=False
+        )
+
         # create optimizer and loss func
-        self.optimizer = tf.optimizers.SGD(learning_rate=self.params['learn_rate'])
-        self.loss_func = tf.losses.MeanSquaredError()
+        self.optimizer = tf.optimizers.SGD(learning_rate=self.lr_decay_func)
+        self.loss_func = tf.losses.MeanAbsoluteError()
 
         # create model checkpoints
         self.checkpoint = tf.train.Checkpoint(optimizer=self.optimizer, net=self.model)
@@ -138,9 +174,9 @@ class TrainingSession(object):
                     print('training progress:', int((step % self.params['total_train_batches']) / self.params['total_train_batches'] * 100), '%')
                     with self.train_summary_writer.as_default():
                         print('train results:', 'acc={}, loss={}'.format(self.train_acc.result(), self.train_loss.result()))
-                        tf.summary.scalar('train_acc', self.train_acc.result(), step=step)
+                        # tf.summary.scalar('train_acc', self.train_acc.result(), step=step)
                         tf.summary.scalar('train_loss', self.train_loss.result(), step=step)
-                        self.train_acc.reset_states()
+                        # self.train_acc.reset_states()
                         self.train_loss.reset_states()
 
             # loop through all batches on the evaluation dataset
@@ -149,9 +185,9 @@ class TrainingSession(object):
 
             with self.eval_summary_writer.as_default():
                 print('eval results:', 'acc={}, loss={}'.format(self.eval_acc.result(), self.eval_loss.result()))
-                tf.summary.scalar('eval_acc', self.eval_acc.result(), step=step)
+                # tf.summary.scalar('eval_acc', self.eval_acc.result(), step=step)
                 tf.summary.scalar('eval_loss', self.eval_loss.result(), step=step)
-                self.eval_acc.reset_states()
+                # self.eval_acc.reset_states()
                 self.eval_loss.reset_states()
 
             # store the model weights using the checkpoint manager
@@ -166,8 +202,6 @@ class TrainingSession(object):
 
         with tf.GradientTape() as tape:
 
-            # TODO: figure out if next states should rather be used for prediction
-
             # predict ratings and compute loss
             pred_ratings = self.model(next_states)
             label_ratings = rewards
@@ -179,7 +213,7 @@ class TrainingSession(object):
 
         # write loss and accuracy to the metrics cache
         self.train_loss(loss)
-        self.train_acc(1 - tf.math.sqrt(loss))
+        # self.train_acc(1 - loss)
 
 
     @ tf.function
@@ -195,15 +229,17 @@ class TrainingSession(object):
 
         # write loss and accuracy to the metrics cache
         self.eval_loss(loss)
-        self.eval_acc(1 - tf.math.sqrt(loss))
+        # self.eval_acc(1 - loss)
 
 
 def main():
 
     params = {
         'batch_size': 32,
-        'learn_rate': 0.01,
-        'epochs': 1000,
+        'learn_rate': 0.2,
+        'epochs': 30,
+        'lr_decay_epochs': 3,
+        'lr_decay_rate': 0.5,
 
         'log_interval': 100,
         'total_train_batches': 2774,
