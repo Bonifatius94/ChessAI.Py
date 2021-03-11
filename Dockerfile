@@ -1,16 +1,18 @@
 
 # use base image with chesslib pre-installed
-FROM chesslib-python3:latest
+FROM python:3.8-buster
+
+ENV MODELS_ROOT=/app/models
+ENV LOGS_ROOT=/app/logs
 
 # install all Python dependencies from requirements.txt
+RUN python3 -m pip install pip --upgrade
 ADD ./requirements.txt /requirements.txt
-WORKDIR /
-RUN pip3 install -r requirements.txt --upgrade
+RUN pip3 install -r /requirements.txt --upgrade
 
 # copy source code
-#ADD ./src /home/ai/src
-WORKDIR /home/ai/src
+ADD ./src /app/src
+WORKDIR /app/src
 
-# configure entrypoint
-#ADD ./entrypoint.sh /entrypoint.sh
-#ENTRYPOINT ["/entrypoint.sh"]
+
+# TODO: configure entrypoint
