@@ -7,19 +7,20 @@ import tensorflow as tf
 from tensorflow import keras
 import chesslib
 
-from dataset import ChessGmGamesDataset
-from . import ChessDrawGenerator
+from ..dataset import ChessGmGamesDataset
+from . import ChessRatingModel
 
 
-class DrawGenTrainingSession(object):
+class DeepQTrainingSession(object):
 
     def __init__(self, params: dict):
 
-        super(DrawGenTrainingSession, self).__init__()
+        super(DeepQTrainingSession, self).__init__()
         self.params = params
 
         # create training and evaluation datasets
-        self.train_dataset, self.eval_dataset = load_datasets(params['batch_size'])
+        dataset = ChessGmGamesDataset(params['batch_size'])
+        self.train_dataset, self.eval_dataset = dataset.load_datasets()
 
         # create model to be trained
         self.model = ChessRatingModel(params)
@@ -41,6 +42,7 @@ class DrawGenTrainingSession(object):
         # create model checkpoints
         self.checkpoint = tf.train.Checkpoint(optimizer=self.optimizer, net=self.model)
         self.manager = tf.train.CheckpointManager(self.checkpoint, './models/pretrain', max_to_keep=5)
+        # TODO: load pretrained feature extractor and ratings here ...
 
         # create logging metrics
         self.train_loss = tf.keras.metrics.Mean(name="train_loss")
@@ -137,9 +139,9 @@ def main():
 
     # TODO: transform this into a JSON settings file
     params = {
+        'epochs': 30,
         'batch_size': 32,
         'learn_rate': 0.2,
-        'epochs': 30,
         'lr_decay_epochs': 3,
         'lr_decay_rate': 0.5,
 
@@ -147,7 +149,7 @@ def main():
         'total_train_batches': 2774,
     }
 
-    session = DrawGenTrainingSession(params)
+    session = DeepQTrainingSession(params)
     session.run_training()
 
 
