@@ -1,0 +1,13 @@
+
+version: "2"
+
+services:
+
+  chessai:
+    image: chessai-train
+    build:
+      context: .
+    entrypoint: ["python3", "main.py"]
+    volumes:
+      - './models:/app/models'
+      - './logs:/app/logs'

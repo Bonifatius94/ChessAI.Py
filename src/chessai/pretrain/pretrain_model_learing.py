@@ -7,15 +7,15 @@ import tensorflow as tf
 from tensorflow import keras
 import chesslib
 
-from ..dataset import ChessGmGamesDataset
-from . import ChessRatingModel
+from chessai.dataset import ChessGmGamesDataset
+from chessai.pretrain import ChessRatingModel
 
 
-class RatingTrainingSession(object):
+class DeepQTrainingSession(object):
 
     def __init__(self, params: dict):
 
-        super(RatingTrainingSession, self).__init__()
+        super(DeepQTrainingSession, self).__init__()
         self.params = params
 
         # create training and evaluation datasets
@@ -42,7 +42,7 @@ class RatingTrainingSession(object):
         # create model checkpoints
         self.checkpoint = tf.train.Checkpoint(optimizer=self.optimizer, net=self.model)
         self.manager = tf.train.CheckpointManager(self.checkpoint, './models/pretrain', max_to_keep=5)
-        # TODO: load pretrained feature extractor here ...
+        # TODO: load pretrained feature extractor and ratings here ...
 
         # create logging metrics
         self.train_loss = tf.keras.metrics.Mean(name="train_loss")
@@ -149,7 +149,7 @@ def main():
         'total_train_batches': 2774,
     }
 
-    session = RatingTrainingSession(params)
+    session = DeepQTrainingSession(params)
     session.run_training()
 
 

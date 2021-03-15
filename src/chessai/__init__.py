@@ -1,3 +1,3 @@
 
-import .dataset import *
-import .pre_train import *
+from chessai.dataset import *
+from chessai.pretrain import *

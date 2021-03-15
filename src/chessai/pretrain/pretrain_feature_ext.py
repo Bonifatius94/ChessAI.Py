@@ -7,15 +7,15 @@ import tensorflow as tf
 from tensorflow import keras
 import chesslib
 
-from ..dataset import ChessGmGamesDataset
-from . import ChessRatingModel
+from chessai.dataset import ChessGmGamesDataset
+from chessai.pretrain import ChessDrawGenerator
 
 
-class DeepQTrainingSession(object):
+class DrawGenTrainingSession(object):
 
     def __init__(self, params: dict):
 
-        super(DeepQTrainingSession, self).__init__()
+        super(DrawGenTrainingSession, self).__init__()
         self.params = params
 
         # create training and evaluation datasets
@@ -23,9 +23,9 @@ class DeepQTrainingSession(object):
         self.train_dataset, self.eval_dataset = dataset.load_datasets()
 
         # create model to be trained
-        self.model = ChessRatingModel(params)
-        self.model.build((None, 8, 8, 7))
-        print(self.model.summary())
+        self.model = ChessDrawGenerator(params)
+        # self.model.build((None, 8, 8, 7))
+        # print(self.model.summary())
 
         # create learning rate decay func
         self.lr_decay_func = tf.keras.optimizers.schedules.ExponentialDecay(
@@ -42,7 +42,6 @@ class DeepQTrainingSession(object):
         # create model checkpoints
         self.checkpoint = tf.train.Checkpoint(optimizer=self.optimizer, net=self.model)
         self.manager = tf.train.CheckpointManager(self.checkpoint, './models/pretrain', max_to_keep=5)
-        # TODO: load pretrained feature extractor and ratings here ...
 
         # create logging metrics
         self.train_loss = tf.keras.metrics.Mean(name="train_loss")
@@ -130,29 +129,3 @@ class DeepQTrainingSession(object):
         # write loss and accuracy to the metrics cache
         self.eval_loss(loss)
         # self.eval_acc(1 - loss)
-
-
-def main():
-
-    # TODO: refactor this by adding a main script starting the entire training processes
-    #       for all pre-training scripts
-
-    # TODO: transform this into a JSON settings file
-    params = {
-        'epochs': 30,
-        'batch_size': 32,
-        'learn_rate': 0.2,
-        'lr_decay_epochs': 3,
-        'lr_decay_rate': 0.5,
-
-        'log_interval': 100,
-        'total_train_batches': 2774,
-    }
-
-    session = DeepQTrainingSession(params)
-    session.run_training()
-
-
-# launch training
-if __name__ == '__main__':
-    main()

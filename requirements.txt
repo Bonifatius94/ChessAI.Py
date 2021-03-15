@@ -7,5 +7,6 @@ chesslib
 tensorflow
 numpy
 requests
+pandas
 
 # TODO: find out explicit versions for each package

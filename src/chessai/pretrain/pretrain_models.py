@@ -44,7 +44,7 @@ class ChessDrawGenerator(tf.keras.Model):
         self.params = params
 
         # create model input layers
-        self.nn_feature_ext = ChessFeatureExtractionModel()
+        self.nn_feature_ext = ChessFeatureExtractionModel(params)
         self.nn_start_pos_embedding = tf.keras.layers.Embedding(64, 512)
 
         # create LSTM cells as a stacked RNN layer
@@ -59,7 +59,7 @@ class ChessDrawGenerator(tf.keras.Model):
         self.nn_dense_output = tf.keras.layers.Dense(64)
 
 
-    def call(self, chessboard, drawing_pos):
+    def call(self, chessboard, drawing_pos=None):
 
         # initialize LSTM state ('show' to board to the LSTM)
         board_features = self.nn_feature_ext(chessboard)

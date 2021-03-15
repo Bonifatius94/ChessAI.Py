@@ -3,7 +3,7 @@ import numpy as np
 import tensorflow as tf
 import chesslib
 
-from . import conv_board
+from .chessboard_ext import conv_board
 
 
 class ChessRandTreewalkDataset(object):

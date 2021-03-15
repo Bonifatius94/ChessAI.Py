@@ -7,7 +7,8 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 import chesslib
-from chessboard_ext import chessboard_to_compact_2d_feature_maps as conv_board
+
+from .chessboard_ext import chessboard_to_compact_2d_feature_maps as conv_board
 
 
 class ChessGmGamesDataset(object):
@@ -30,8 +31,8 @@ class ChessGmGamesDataset(object):
         sars_winrates = self.prepare_pandas_data(winrates_cache)
 
         # split the data into randomly sampled training and evaluation chunks (9:1)
-        train_data = self.sars_winrates.sample(frac=0.9)
-        eval_data = self.sars_winrates.drop(train_data.index)
+        train_data = sars_winrates.sample(frac=0.9)
+        eval_data = sars_winrates.drop(train_data.index)
 
         # transform the pandas dataframe into a tensorflow dataset
         train_dataset = self.create_tf_dataset(train_data, self.batch_size, train=True)
