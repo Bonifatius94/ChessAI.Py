@@ -49,10 +49,10 @@ Now, go ahead and launch the training in a dockerized manner.
 
 ```sh
 # run all configs sequentially (default behavior)
-docker-compose -f docker-compose.yml
+docker-compose up --build
 
 # run only a specific config (here it's the 'pretrain' config)
-docker-compose -f docker-compose.yml pretrain
+docker-compose build && docker-compose run chessai pretrain
 ```
 
 Currently valid configs are:
