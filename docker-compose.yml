@@ -7,7 +7,7 @@ services:
     image: chessai-train
     build:
       context: .
-    entrypoint: ["python3", "main.py"]
+    entrypoint: ["python", "main.py"]
     volumes:
       - './models:/app/models'
       - './logs:/app/logs'

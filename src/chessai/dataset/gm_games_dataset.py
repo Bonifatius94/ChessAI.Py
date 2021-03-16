@@ -113,7 +113,7 @@ class ChessGmGamesDataset(object):
         dataset = dataset.batch(batch_size)
 
         # shuffle the dataset when creating a training dataset
-        if train: dataset = dataset.shuffle(50)
+        # if train: dataset = dataset.shuffle(50) # TODO: re-enable shuffle
 
         return dataset
 

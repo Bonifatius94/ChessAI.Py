@@ -59,21 +59,33 @@ class ChessDrawGenerator(tf.keras.Model):
         self.nn_dense_output = tf.keras.layers.Dense(64)
 
 
-    def call(self, chessboard, drawing_pos=None):
+    def call(self, drawing_piece_pos, state):
 
-        # initialize LSTM state ('show' to board to the LSTM)
-        board_features = self.nn_feature_ext(chessboard)
-        zero_state = self.nn_stacked_lstm_cells.get_initial_state(
-            batch_size=self.params['batch_size'], dtype=tf.float32)
-        x, h = self.nn_stacked_lstm_cells(board_features, zero_state)
+        # predict the target position of the drawing piece using LSTM
+        x = self.nn_start_pos_embedding(drawing_piece_pos)
+        x, _ = self.nn_stacked_lstm_cells(x, state)
 
-        # predict a legal draw for the chess piece at the given field position
-        x = self.nn_start_pos_embedding(drawing_pos)
-        x, h = self.nn_stacked_lstm_cells(x, h)
+        # reshape the LSTM output to logits (LSTM units -> 64)
         x = self.nn_flatten_output(x)
         target_pos = self.nn_dense_output(x)
 
         return target_pos
+
+
+    def show_chessboard(self, chessboard):
+
+        # initialize zero state
+        zero_state = self.nn_stacked_lstm_cells.get_initial_state(
+            batch_size=self.params['batch_size'], dtype=tf.float32)
+
+        # extract features from the chess board
+        board_features = self.nn_feature_ext(chessboard)
+        
+        # show the extracted features to the LSTM and get the initial state
+        _, h = self.nn_stacked_lstm_cells(board_features, zero_state)
+
+        # return the initial state (now, the state can be used to predict draws)
+        return h
 
 
 class ChessRatingModel(tf.keras.Model):
