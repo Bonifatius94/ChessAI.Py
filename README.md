@@ -59,26 +59,7 @@ Currently valid configs are:
 - all (=default)
 - pretrain
 
-## Experiment Results
-### Reinforcement Learning Approach:
-#### Results summarization
-
-- creation of TF Keras models and useful techniques with Keras
-- creation of a custom weight update function
-- implementation of an algorithm to make two Keras estimation functions play against each other
-- gameplay training result evaulation (determinating when the game is over, which player won, 
-  loop detection, win rate computation, etc.)
-- achievement of first training results, players were not able to win in a reasonable time 
-  because of random drawing, draw selection is deterministic -> less training progress due to 
-  missing variation
-
-#### Resume
-The reinforcement learning approach was finally put to work and the model did somewhat
-train. But the given computational power was simply not enough to train a random 
-player's model to grandmaster elo from scratch. So there need to be made some 
-adjustments to the training and/or network model.
-
-#### Further Steps / Adjustments / Additional Approaches
+## Learning Approaches
 
 *1) Start with a pre-trained network*
 - use the already existing win rate cache (SQLite) from the ChessAI.CS project in order to train a model 
