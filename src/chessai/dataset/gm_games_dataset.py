@@ -105,15 +105,16 @@ class ChessGmGamesDataset(object):
             tensors=(states, actions, rewards, next_states))
 
         # convert the chesslib bitboards to compressed, convolutable 8x8x7 feature maps
-        dataset = dataset.map(lambda state, action, reward, next_state: (
-            conv_board(state), action, reward, conv_board(next_state)
-        ))
+        dataset = dataset.map(lambda state, action, reward, next_state:
+            (conv_board(state), action, reward, conv_board(next_state)),
+            num_parallel_calls=8, deterministic=True
+        )
 
         # batch the data properly
         dataset = dataset.batch(batch_size)
 
         # shuffle the dataset when creating a training dataset
-        # if train: dataset = dataset.shuffle(50) # TODO: re-enable shuffle
+        if train: dataset = dataset.shuffle(50)
 
         return dataset
 
