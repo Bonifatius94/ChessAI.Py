@@ -111,7 +111,7 @@ class ChessGmGamesDataset(object):
         )
 
         # batch the data properly
-        dataset = dataset.batch(batch_size)
+        dataset = dataset.batch(batch_size, drop_remainder=True)
 
         # shuffle the dataset when creating a training dataset
         if train: dataset = dataset.shuffle(50)

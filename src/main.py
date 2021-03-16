@@ -30,7 +30,7 @@ def launch_pretrain():
         'lr_decay_rate': 0.5,
 
         'log_interval': 100,
-        'total_train_batches': 2774,
+        'total_train_batches': 2400, # TODO: find out the exact value
     }
 
     # create a new training session
