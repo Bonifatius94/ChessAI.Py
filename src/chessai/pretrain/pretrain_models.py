@@ -104,6 +104,9 @@ class ChessRatingModel(tf.keras.Model):
         self.nn_dense_4 = tf.keras.layers.Dense(64)
         self.nn_dense_output = tf.keras.layers.Dense(1)
 
+        # specify whether the feature extraction is supposed to be trainable
+        self.nn_feature_ext._trainable = params['is_fx_trainable']
+
 
     def call(self, inputs):
 

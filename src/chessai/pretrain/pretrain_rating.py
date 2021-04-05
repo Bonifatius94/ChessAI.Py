@@ -37,12 +37,13 @@ class RatingTrainingSession(object):
 
         # create optimizer and loss func
         self.optimizer = tf.optimizers.SGD(learning_rate=self.lr_decay_func)
-        self.loss_func = tf.losses.MeanAbsoluteError()
+        self.loss_func = tf.losses.MSE
 
-        # create model checkpoints
-        self.checkpoint = tf.train.Checkpoint(optimizer=self.optimizer, net=self.model)
-        self.manager = tf.train.CheckpointManager(self.checkpoint, './models/pretrain', max_to_keep=5)
-        # TODO: load pretrained feature extractor here ...
+        # load pre-trained feature extractor and create model checkpoints
+        checkpoint = tf.train.Checkpoint(optimizer=self.optimizer, net=self.model)
+        self.manager = tf.train.CheckpointManager(checkpoint, './models/pretrain-fx', max_to_keep=5)
+        checkpoint.restore(self.manager.latest_checkpoint).expect_partial()
+        self.manager = tf.train.CheckpointManager(checkpoint, './models/pretrain-ratings', max_to_keep=5)
 
         # create logging metrics
         self.train_loss = tf.keras.metrics.Mean(name="train_loss")
