@@ -4,7 +4,7 @@
 This project offers experimental chess AI approaches meant for learning purposes.
 
 ## Disclaimer
-There is still work in progess ...
+There is still work in progess ... don't expect this to be ready-to-use yet.
 
 ## Main Idea
 Evaluating a chess position accurately is very difficult. Just summarizing static values 
@@ -13,88 +13,59 @@ per chess piece on the board (like e.g. in
 is often not enough. The computation of such scores also heavily depends on an accurate 
 estimator that takes positional metadata in consideration (e.g. how pieces cover each 
 other or whether there are weaknesses like double peasant, etc.). Using a good heuristic 
-estimator may also massively speed up the chess AI's best draw computation in comparison 
-to computation-heavy game tree algorithms like minimax (several milliseconds vs. several minutes).
+estimator may massively speed up the chess AI's best draw computation in comparison 
+to computation-heavy algorithmic approaches like minimax with alpha-beta prune.
 
 ### Deep Learning: Imitate Elaborated Gameplay
-Extract grandmaster gameplay data from common sources and learn the draws played by real high-elo players. The training may result into a good artificial chess player and should at least prepare a neuronal network for further refinement.
+Extract grandmaster gameplay data from common sources and learn the draws played by real
+high-elo players. The training may result into a good artificial chess player and should
+at least prepare a neural network for further refinement.
 
-### Reinforcement Learning: Monte-Carlo Learning
-Use the Monte-Carlo techniques to evaluate good and bad actions with lots of self-play. After each game played, compute estimated reward scores for each (state, action) tuple from the game's draw history.
+### Reinforcement Learning: Learn by Trial-and-Error
+Use several reinforcement learning techniques to evaluate good and bad actions with
+lots of self-play. Potential approaches could be Deep-Q Learning, Monte-Carlo 
+Tree-Search, Policy Gradient, ... Those training techniques can be used to refine the
+initial training on grandmaster game data.
 
-### Reinforcement Learning: Deep Q Learning
-Implement Deep Q Learning to determine the goodness of chess draws. This can be used as an alternative to Monte-Carlo results.
-
-## How to Build / Train
-Install git and docker, pull the source code and set up the repository:
+## How to Train
+For launching the training, first install docker and git to your environment.
 
 ```sh
 # install docker (e.g. on Ubuntu 18.04)
 sudo apt-get update && sudo apt-get install -y git docker.io docker-compose
 sudo usermod -aG docker $USER && reboot
+```
 
+After successfully installing the prerequisites, download the source code
+and set up the repository.
+
+```sh
 # clone the github repo
 git clone https://github.com/Bonifatius94/ChessAI.Py
 cd ChessAI.Py
 ```
 
-Build the training environment and run the training scripts using Docker:
+Now, go ahead and launch the training in a dockerized manner.
 
 ```sh
-# build the Dockerfile
-docker build . -t "chessai-train"
+# run all configs sequentially (default behavior)
+docker-compose up --build
 
-# run pre-training script
-docker run -v $PWD/src:/home/ai/src \
-           -v $PWD/../model_out:/home/ai/model \
-           -e MODEL_OUT=/home/ai/model \
-           chessai-train pyhton3 pretrain-chessai.py
-
-# run reinforcement learning script
-docker run -v $PWD/src:/home/ai/src \
-           -v $PWD/../model_out:/home/ai/model \
-           -e MODEL_OUT=/home/ai/model \
-           chessai-train pyhton3 reinf-chessai.py
-
-# run gameplay test script
-docker run -v $PWD/src:/home/ai/src \
-           chessai-train python3 gameplay-test.py
-
-# run weights mutation test script
-docker run -v $PWD/src:/home/ai/src \
-           chessai-train python3 mutate-test.py
-
-# run keras test script (deep learning, classification task)
-docker run -v $PWD/src:/home/ai/src \
-           chessai-train python3 keras-test.py
+# run only a specific config (here it's the 'pretrain' config)
+docker-compose build && docker-compose run chessai pretrain
 ```
 
-## Experiment Results
-### Reinforcement Learning Approach:
-#### Results summarization
+Currently valid configs are:
+- all (=default)
+- pretrain
 
-- creation of TF Keras models and useful techniques with Keras
-- creation of a custom weight update function
-- implementation of an algorithm to make two Keras estimation functions play against each other
-- gameplay training result evaulation (determinating when the game is over, which player won, 
-  loop detection, win rate computation, etc.)
-- achievement of first training results, players were not able to win in a reasonable time 
-  because of random drawing, draw selection is deterministic -> less training progress due to 
-  missing variation
-
-#### Resume
-The reinforcement learning approach was finally put to work and the model did somewhat train. But the 
-given computational power was simply not enough to train a random player's model to grandmaster elo 
-from scratch. So there need to be made some adjustments to the training and/or network model.
-
-#### Further Steps / Adjustments / Additional Approaches
+## Learning Approaches
 
 *1) Start with a pre-trained network*
 - use the already existing win rate cache (SQLite) from the ChessAI.CS project in order to train a model 
   to predict the win rates of draws (supervised learning; data types should be compatible as ChessLib.Py 
   is a clone of ChessAI.CS's Chess.Lib project)
-- info: the win rate cache consists of the results of ~ 360000 human grandmaster games, so it's 
-  biased data
+- info: the win rate cache consists of the results of ~ 360000 human grandmaster games, so it's biased data
 
 - for pre-training, transform the chess board into 2D maps with channels for each piece type and color
   like in the bitboard representation, but don't use the bitboards directly. Instead use a shape like (batch_size, 8, 8, 13)
