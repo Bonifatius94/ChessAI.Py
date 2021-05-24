@@ -8,7 +8,7 @@ import pandas as pd
 import tensorflow as tf
 import chesslib
 
-from .chessboard_ext import chessboard_to_compact_2d_feature_maps as conv_board
+from chessai.dataset import conv_board
 
 
 class ChessGmGamesDataset(object):
@@ -19,7 +19,7 @@ class ChessGmGamesDataset(object):
         self.batch_size = batch_size
 
 
-    def load_datasets(self):
+    def load_datasets(self, sample_seed: int=None) -> (tf.data.Dataset, tf.data.Dataset):
 
         # make sure the winrates database is locally available (download if not)
         db_filepath = './win_rates.db'
@@ -31,14 +31,14 @@ class ChessGmGamesDataset(object):
         sars_winrates = self.prepare_pandas_data(winrates_cache)
 
         # split the data into randomly sampled training and evaluation chunks (9:1)
-        train_data = sars_winrates.sample(frac=0.9)
+        train_data = sars_winrates.sample(frac=0.9, random_state=sample_seed)
         eval_data = sars_winrates.drop(train_data.index)
 
         # transform the pandas dataframe into a tensorflow dataset
         train_dataset = self.create_tf_dataset(train_data, self.batch_size, train=True)
         eval_dataset = self.create_tf_dataset(eval_data, self.batch_size, train=False)
 
-        return train_dataset, eval_dataset
+        return (train_dataset, eval_dataset)
 
 
     def download_winrates_db(self, db_filepath: str):
@@ -117,26 +117,3 @@ class ChessGmGamesDataset(object):
         if train: dataset = dataset.shuffle(50)
 
         return dataset
-
-
-# this is just a test script making sure all functions work fine
-if __name__ == '__main__':
-
-    # test single chessboard tensor conversion
-    start_board = chesslib.ChessBoard_StartFormation()
-    conv_start_board = chessboard_to_2d_feature_maps(start_board)
-    print(conv_start_board.numpy())
-
-    # test loading training and eval datasets
-    batch_size = 32
-    train_dataset, eval_dataset = load_datasets(batch_size)
-    print(train_dataset)
-    print(eval_dataset)
-
-    # try to print the first batch item of each dataset
-    train_iterator = iter(train_dataset)
-    first_item = train_iterator.next()
-    print(first_item)
-    eval_iterator = iter(eval_dataset)
-    first_item = eval_iterator.next()
-    print(first_item)

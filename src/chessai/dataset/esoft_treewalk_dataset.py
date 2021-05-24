@@ -5,6 +5,10 @@ import chesslib
 
 from .chessboard_ext import conv_board
 
+# TODO: finish the implementation of this dataset generator class
+#       it should create self-play chess data exploring the game tree
+#       with a given exploration rate epsilon
+
 
 class ChessRandTreewalkDataset(object):
 
