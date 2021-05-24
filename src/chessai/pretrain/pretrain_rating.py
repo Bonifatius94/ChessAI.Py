@@ -19,7 +19,7 @@ class RatingTrainingSession(object):
         # initialize model and datasets
         self.train_dataset, self.eval_dataset = self.load_datasets(params)
         self.model = self.create_model(params)
-        print(model.summary())
+        print(self.model.summary())
 
         # create model checkpoint manager
         self.model_ckpt_callback = ModelCheckpoint(
@@ -71,7 +71,7 @@ class RatingTrainingSession(object):
 
         # run the training and write the metrics to tensorboard
         history = self.model.fit(
-            x_train=self.train_dataset, epochs=self.params['epochs'],
+            x=self.train_dataset, epochs=self.params['epochs'],
             validation_data=self.eval_dataset,
             callbacks=[self.tb_callback, self.model_ckpt_callback])
 

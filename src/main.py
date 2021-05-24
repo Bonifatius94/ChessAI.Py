@@ -16,7 +16,6 @@ def main():
 
     elif startup_config == 'all':
         launch_pretrain()
-        launch_pretrain_ratings()
         # TODO: add launching other trainings here ...
     else:
         raise ValueError('Invalid args! Unknown training startup configuration {}!'.format(startup_config))
@@ -25,28 +24,30 @@ def main():
 def launch_pretrain():
 
     # launch entire pre-training
-    launch_pretrain_fx()
+    # launch_pretrain_fx()
+    launch_pretrain_ratings()
 
 
 def launch_pretrain_fx():
+    pass
 
-    params = {
-        'batch_size': 32,
-        'learn_rate': 0.2,
-        'epochs': 30,
-        'lr_decay_epochs': 3,
-        'lr_decay_rate': 0.5,
-        'lr_decay_staircase': False,
+#     params = {
+#         'batch_size': 32,
+#         'learn_rate': 0.2,
+#         'epochs': 30,
+#         'lr_decay_epochs': 3,
+#         'lr_decay_rate': 0.5,
+#         'lr_decay_staircase': False,
 
-        'log_interval': 100,
-        'total_train_batches': 2496,
-    }
+#         'log_interval': 100,
+#         'total_train_batches': 2496,
+#     }
 
-    # create a new training session and launch the training
-    session = chessai.pretrain.DrawGenTrainingSession(params)
-    session.run_training()
+#     # create a new training session and launch the training
+#     session = chessai.pretrain.DrawGenTrainingSession(params)
+#     session.run_training()
 
-    # TODO: launch all other pre-train sessions here, too ...
+#     # TODO: launch all other pre-train sessions here, too ...
 
 
 def launch_pretrain_ratings():
@@ -63,6 +64,7 @@ def launch_pretrain_ratings():
         'total_train_batches': 2400,
         'lr_decay_epochs': 5,
         'lr_decay_rate': 0.1,
+        'lr_decay_staircase': False,
 
         # make the feature extractor variables trainable
         'is_fx_trainable': True,
