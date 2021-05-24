@@ -9,5 +9,5 @@ services:
       context: .
     entrypoint: ["python", "main.py"]
     volumes:
-      - './models:/app/models'
+      - './model_weights:/app/models'
       - './logs:/app/logs'

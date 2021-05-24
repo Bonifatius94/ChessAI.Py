@@ -1,4 +1,3 @@
-win_rates.db
 .vscode
 logs
-models
+model_weights
