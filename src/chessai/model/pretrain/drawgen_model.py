@@ -1,6 +1,6 @@
 
 import tensorflow as tf
-from chessai.model.pretrain.fext_base_model import ChessFeatureExtractionModel
+from .fext_base_model import ChessFeatureExtractionModel
 
 
 class ChessDrawgenModel(tf.keras.Model):

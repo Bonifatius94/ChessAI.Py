@@ -1,6 +1,6 @@
 
 import tensorflow as tf
-from tf.keras.layers import Conv2D, MaxPool2D
+from tensorflow.keras.layers import Conv2D, MaxPool2D
 
 
 class ChessFeatureExtractionModel(tf.keras.Model):

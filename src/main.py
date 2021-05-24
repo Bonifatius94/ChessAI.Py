@@ -50,31 +50,26 @@ def launch_pretrain_fx():
 
 def launch_pretrain_ratings():
 
-    # frozen fx settings
+    # define training parameters
     params = {
-        'batch_size': 32,
-        'learn_rate': 0.01,
-        'epochs': 30,
-        'lr_decay_epochs': 3,
-        'lr_decay_rate': 0.1,
-        'is_fx_trainable': False,
 
-        'log_interval': 100,
-        'total_train_batches': 2400, # TODO: find out the exact value
+        # define dataset batch size and training epochs
+        'batch_size': 32,
+        'epochs': 30,
+
+        # define the learning rate (exp. decay)
+        'learn_rate': 0.001,
+        'total_train_batches': 2400,
+        'lr_decay_epochs': 5,
+        'lr_decay_rate': 0.1,
+
+        # make the feature extractor variables trainable
+        'is_fx_trainable': True,
     }
 
     # create a new training session and launch the training
     session = chessai.pretrain.RatingTrainingSession(params)
     session.run_training()
-
-
-# def get_instance_by_name(fq_classname: str):
-#     parts = kls.split('.')
-#     module = ".".join(parts[:-1])
-#     m = __import__( module )
-#     for comp in parts[1:]:
-#         m = getattr(m, comp)            
-#     return m
 
 
 if __name__ == '__main__':

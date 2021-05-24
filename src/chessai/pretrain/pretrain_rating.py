@@ -4,8 +4,7 @@ import numpy as np
 import chesslib
 
 import tensorflow as tf
-from tensorflow import keras
-from tf.keras.callbacks import ModelCheckpoint, TensorBoard
+from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard
 
 from chessai.dataset import ChessGmGamesDataset
 from chessai.model.pretrain import ChessRatingModel
@@ -18,7 +17,7 @@ class RatingTrainingSession(object):
         self.params = params
 
         # initialize model and datasets
-        self.train_dataset, self.eval_dataset = self.load_dataset(params)
+        self.train_dataset, self.eval_dataset = self.load_datasets(params)
         self.model = self.create_model(params)
         print(model.summary())
 
@@ -47,6 +46,12 @@ class RatingTrainingSession(object):
 
 
     def create_model(self, params: dict) -> tf.keras.Model:
+
+        i = 0
+        for batch in self.train_dataset:
+            i += 1
+
+        print('total training batches:', i)
 
         # create learning rate decay func
         lr_decay_func = tf.keras.optimizers.schedules.ExponentialDecay(

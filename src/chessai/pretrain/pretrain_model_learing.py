@@ -8,7 +8,7 @@ from tensorflow import keras
 import chesslib
 
 from chessai.dataset import ChessGmGamesDataset
-from chessai.pretrain import ChessRatingModel
+from chessai.model.pretrain import ChessRatingModel
 
 
 # TODO: rework this training script from scratch

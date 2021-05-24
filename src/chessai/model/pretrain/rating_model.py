@@ -1,8 +1,8 @@
 
 import tensorflow as tf
-from tf.keras.layers import Dense, Dropout
+from tensorflow.keras.layers import Dense, Dropout
 
-from chessai.model.pretrain.fext_base_model import ChessFeatureExtractionModel
+from .fext_base_model import ChessFeatureExtractionModel
 
 
 class ChessRatingModel(tf.keras.Model):
@@ -17,8 +17,8 @@ class ChessRatingModel(tf.keras.Model):
         self.nn_feature_ext = ChessFeatureExtractionModel(params)
         self.flatten = Flatten()
         self.dropout_1 = Dropout(rate=0.5)
-        self.nn_dense_1 = Dense(units=512)
-        self.nn_dense_2 = Dense(units=128)
+        self.nn_dense_1 = Dense(units=512, activation='relu')
+        self.nn_dense_2 = Dense(units=128, activation='relu')
         self.nn_dense_out = Dense(units=1)
 
 

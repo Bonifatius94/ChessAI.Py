@@ -8,7 +8,7 @@ from tensorflow import keras
 import chesslib
 
 from chessai.dataset import ChessGmGamesDataset
-from chessai.pretrain import ChessDrawGenerator
+from chessai.model.pretrain import ChessDrawgenModel
 
 
 # TODO: rework this training script from scratch
