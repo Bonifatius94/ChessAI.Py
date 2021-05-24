@@ -36,9 +36,10 @@ def launch_pretrain_fx():
         'epochs': 30,
         'lr_decay_epochs': 3,
         'lr_decay_rate': 0.5,
+        'lr_decay_staircase': False,
 
         'log_interval': 100,
-        'total_train_batches': 2400, # TODO: find out the exact value
+        'total_train_batches': 2496,
     }
 
     # create a new training session and launch the training

@@ -47,18 +47,12 @@ class RatingTrainingSession(object):
 
     def create_model(self, params: dict) -> tf.keras.Model:
 
-        i = 0
-        for batch in self.train_dataset:
-            i += 1
-
-        print('total training batches:', i)
-
         # create learning rate decay func
         lr_decay_func = tf.keras.optimizers.schedules.ExponentialDecay(
             initial_learning_rate=params['learn_rate'],
             decay_steps = params['total_train_batches'] * params['lr_decay_epochs'],
             decay_rate = params['lr_decay_rate'],
-            staircase=False
+            staircase=params['lr_decay_staircase']
         )
 
         # create optimizer and loss func
