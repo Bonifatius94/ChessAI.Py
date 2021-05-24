@@ -11,6 +11,9 @@ from chessai.dataset import ChessGmGamesDataset
 from chessai.pretrain import ChessRatingModel
 
 
+# TODO: rework this training script from scratch
+
+
 class DeepQTrainingSession(object):
 
     def __init__(self, params: dict):

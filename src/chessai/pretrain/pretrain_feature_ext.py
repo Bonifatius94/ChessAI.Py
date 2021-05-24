@@ -11,6 +11,9 @@ from chessai.dataset import ChessGmGamesDataset
 from chessai.pretrain import ChessDrawGenerator
 
 
+# TODO: rework this training script from scratch
+
+
 class DrawGenTrainingSession(object):
 
     def __init__(self, params: dict):
@@ -22,11 +25,6 @@ class DrawGenTrainingSession(object):
         dataset = ChessGmGamesDataset(params['batch_size'])
         self.train_dataset, self.eval_dataset = dataset.load_datasets()
 
-        # create model to be trained
-        self.model = ChessDrawGenerator(params)
-        # self.model.build((None, 8, 8, 7))
-        # print(self.model.summary())
-
         # create learning rate decay func
         self.lr_decay_func = tf.keras.optimizers.schedules.ExponentialDecay(
             initial_learning_rate=params['learn_rate'],
@@ -34,6 +32,11 @@ class DrawGenTrainingSession(object):
             decay_rate = params['lr_decay_rate'],
             staircase=False
         )
+
+        # create model to be trained
+        self.model = ChessDrawGenerator(params)
+        # self.model.build((None, 8, 8, 7))
+        # print(self.model.summary())
 
         # create optimizer and loss func
         self.optimizer = tf.optimizers.SGD(learning_rate=self.lr_decay_func)
@@ -99,7 +102,7 @@ class DrawGenTrainingSession(object):
         # unwrap batch data as SARS data
         states, actions, rewards, next_states = batch_data
         input_positions = tf.bitwise.bitwise_and(actions, 0x3F)
-        target_positions = tf.bitwise.bitwise_and(actions, 0xFC0)
+        target_positions = tf.bitwise.right_shift(tf.bitwise.bitwise_and(actions, 0xFC0), 6)
         target_positions = tf.one_hot(target_positions, depth=64, dtype=tf.float32)
 
         with tf.GradientTape() as tape:
