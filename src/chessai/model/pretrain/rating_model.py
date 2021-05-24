@@ -18,7 +18,7 @@ class ChessRatingModel(tf.keras.Model):
         self.nn_feature_ext.trainable = params['is_fx_trainable']
         self.flatten = Flatten()
         self.dropout_1 = Dropout(rate=0.5)
-        self.dropout_1.build((None, 256))
+        self.dropout_1.build((None, 1024))
         self.nn_dense_1 = Dense(units=512, activation='relu')
         self.nn_dense_2 = Dense(units=128, activation='relu')
         self.nn_dense_out = Dense(units=1)
