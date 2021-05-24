@@ -8,8 +8,6 @@ import pandas as pd
 import tensorflow as tf
 import chesslib
 
-from chessai.dataset import conv_board
-
 
 class ChessGmGamesDataset(object):
 
@@ -26,13 +24,15 @@ class ChessGmGamesDataset(object):
         self.download_winrates_db(db_filepath)
 
         # load the training data into a pandas dataframe using a SQL query
-        # then, convert the dataframe to SARS format
         winrates_cache = self.load_pandas_winrates(db_filepath)
-        sars_winrates = self.prepare_pandas_data(winrates_cache)
 
         # split the data into randomly sampled training and evaluation chunks (9:1)
-        train_data = sars_winrates.sample(frac=0.9, random_state=sample_seed)
-        eval_data = sars_winrates.drop(train_data.index)
+        train_data = winrates_cache.sample(frac=0.9, random_state=sample_seed)
+        eval_data = winrates_cache.drop(train_data.index)
+
+        # convert the data into the SARS format
+        train_data = self.prepare_pandas_data(train_data)
+        eval_data = self.prepare_pandas_data(eval_data)
 
         # transform the pandas dataframe into a tensorflow dataset
         train_dataset = self.create_tf_dataset(train_data, self.batch_size, train=True)
@@ -66,49 +66,66 @@ class ChessGmGamesDataset(object):
     def prepare_pandas_data(self, pd_winrates: pd.DataFrame):
 
         # convert the dataframe into SARS data slices (state-action-reward-nextstate)
-        states = [self.bitboards_from_hash(x) for x in pd_winrates['BoardBeforeHash']]
-        actions = pd_winrates['DrawHashNumeric']
-        rewards = pd_winrates['WinRate']
+        states = np.array([np.array(self.bitboards_from_hash(x)) for x in pd_winrates['BoardBeforeHash']])
+        actions = np.array(pd_winrates['DrawHashNumeric'])
+        rewards = np.array(pd_winrates['WinRate'])
+        next_states = np.array([chesslib.ApplyDraw(states[i], actions[i]) for i in range(len(states))])
 
-        # combine the SARS data slices to a dataframe
-        pd_winrates_sars = pd.DataFrame()
-        pd_winrates_sars['states'] = states
-        pd_winrates_sars['actions'] = actions
-        pd_winrates_sars['rewards'] = rewards
+        print(states.shape, actions.shape, rewards.shape, next_states.shape)
 
-        next_states = pd_winrates_sars.apply(lambda x: chesslib.ApplyDraw(x[0], x[1]), axis=1)
-        pd_winrates_sars['next_states'] = next_states
+        # convert the states into the 2D format (7 channels) used for feature extraction
+        conv_states = self.convert_states(states)
+        conv_next_states = self.convert_states(next_states)
 
-        return pd_winrates_sars
+        return (conv_states, actions, rewards, conv_next_states)
+
+
+    def convert_states(self, states: np.ndarray):
+
+        num_samples = states.shape[0]
+
+        # convert uint64 bitboards to 64 bits as float32 each -> (samples x 13 x 64)
+        bitboard_bits = np.unpackbits(np.array(states, dtype='>i8').view(np.uint8))
+        bitboard_bits = np.reshape(bitboard_bits, (num_samples, 13, 64)).astype(np.float32)
+
+        # split bitboards into categories -> 2x (samples x 6 x 64), 1x (samples x 64)
+        bitboard_bits_white = bitboard_bits[:, 0:6, :]
+        bitboard_bits_black = bitboard_bits[:, 6:12, :]
+        bitboard_bits_wasmoved = bitboard_bits[:, 12, :]
+
+        # aggregate the white and black bitboards (white=1, black=-1, nothing=0)
+        bitboards_compressed = np.zeros((num_samples, 7, 64), dtype=np.float32)
+        bitboards_compressed[:, 0:6, :] = bitboard_bits_white - bitboard_bits_black
+        bitboards_compressed[:, 6, :] = bitboard_bits_wasmoved
+
+        # transpose the compressed bitboards -> (samples x 8 x 8 x 7)
+        bitboards_reshaped = np.transpose(bitboards_compressed, [0, 2, 1])
+        bitboards_reshaped = np.reshape(bitboards_reshaped, (num_samples, 8, 8, 7))
+        return bitboards_reshaped
 
 
     def bitboards_from_hash(self, board_hash: str):
         return chesslib.Board_FromHash(np.frombuffer(bytes.fromhex(board_hash), dtype=np.uint8))
 
 
-    def compact_draw_from_hash(self, draw_hash: str):
-        return int(draw_hash) & 0x7FFF
+    # def compact_draw_from_hash(self, draw_hash: str):
+    #     return int(draw_hash) & 0x7FFF
 
 
-    def create_tf_dataset(self, pd_sars_winrates: pd.DataFrame, batch_size: int, train: bool):
+    def create_tf_dataset(self, sars_winrates: tuple, batch_size: int, train: bool):
+
+        # unwrap SARS data
+        states, actions, rewards, next_states = sars_winrates
 
         # convert the pandas dataframe's columns to tensor slices
-        states = tf.convert_to_tensor(np.array(
-            [np.squeeze(np.array(x)) for x in pd_sars_winrates['states']]), dtype=tf.uint64)
-        actions = tf.convert_to_tensor(np.array(pd_sars_winrates['actions']))
-        rewards = tf.convert_to_tensor(np.array(pd_sars_winrates['rewards']))
-        next_states = tf.convert_to_tensor(np.array(
-            [np.squeeze(np.array(x)) for x in pd_sars_winrates['next_states']]), dtype=tf.uint64)
+        states = tf.convert_to_tensor(states, dtype=tf.float32)
+        actions = tf.convert_to_tensor(actions, dtype=tf.float32)
+        rewards = tf.convert_to_tensor(rewards, dtype=tf.float32)
+        next_states = tf.convert_to_tensor(next_states, dtype=tf.float32)
 
         # create a dataset from the tensor slices -> SARS tuples
         dataset = tf.data.Dataset.from_tensor_slices(
             tensors=(states, actions, rewards, next_states))
-
-        # convert the chesslib bitboards to compressed, convolutable 8x8x7 feature maps
-        dataset = dataset.map(lambda state, action, reward, next_state:
-            (conv_board(state), action, reward, conv_board(next_state)),
-            num_parallel_calls=8, deterministic=True
-        )
 
         # batch the data properly
         dataset = dataset.batch(batch_size, drop_remainder=True)
