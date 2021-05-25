@@ -80,30 +80,6 @@ class ChessGmGamesDataset(object):
         return (conv_states, actions, rewards, conv_next_states)
 
 
-    def convert_states(self, states: np.ndarray):
-
-        num_samples = states.shape[0]
-
-        # convert uint64 bitboards to 64 bits as float32 each -> (samples x 13 x 64)
-        bitboard_bits = np.unpackbits(np.array(states, dtype='>i8').view(np.uint8))
-        bitboard_bits = np.reshape(bitboard_bits, (num_samples, 13, 64)).astype(np.float32)
-
-        # split bitboards into categories -> 2x (samples x 6 x 64), 1x (samples x 64)
-        bitboard_bits_white = bitboard_bits[:, 0:6, :]
-        bitboard_bits_black = bitboard_bits[:, 6:12, :]
-        bitboard_bits_wasmoved = bitboard_bits[:, 12, :]
-
-        # aggregate the white and black bitboards (white=1, black=-1, nothing=0)
-        bitboards_compressed = np.zeros((num_samples, 7, 64), dtype=np.float32)
-        bitboards_compressed[:, 0:6, :] = bitboard_bits_white - bitboard_bits_black
-        bitboards_compressed[:, 6, :] = bitboard_bits_wasmoved
-
-        # transpose the compressed bitboards -> (samples x 8 x 8 x 7)
-        bitboards_reshaped = np.transpose(bitboards_compressed, [0, 2, 1])
-        bitboards_reshaped = np.reshape(bitboards_reshaped, (num_samples, 8, 8, 7))
-        return bitboards_reshaped
-
-
     def bitboards_from_hash(self, board_hash: str):
         return chesslib.Board_FromHash(np.frombuffer(bytes.fromhex(board_hash), dtype=np.uint8))
 
@@ -112,10 +88,10 @@ class ChessGmGamesDataset(object):
     #     return int(draw_hash) & 0x7FFF
 
 
-    def create_tf_dataset(self, sars_winrates: tuple, batch_size: int, train: bool):
+    def create_tf_dataset(self, sars_data: tuple, batch_size: int, train: bool):
 
         # unwrap SARS data
-        states, actions, rewards, next_states = sars_winrates
+        states, actions, rewards, next_states = sars_data
 
         # convert the pandas dataframe's columns to tensor slices
         states = tf.convert_to_tensor(states, dtype=tf.float32)

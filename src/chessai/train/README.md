@@ -32,15 +32,14 @@ The CNN model could look like:
 
 | Layer Name | Layer Specification                        | Output Shape     |
 | ---------- | ------------------------------------------ | ---------------- |
-| Conv_Input | takes chess board 2D feature maps as input | (None, 8, 8, 7)  |
-| Conv_1     | extract features with 8x8 convolution      | (None, ?, ?, ?)  |
-| Conv_2     | extract features with 6x6 convolution      | (None, ?, ?, ?)  |
-| Conv_3     | extract features with 5x5 convolution      | (None, ?, ?, ?)  |
-| Conv_4     | extract features with 4x4 convolution      | (None, ?, ?, ?)  |
-| Conv_5     | extract features with 3x3 convolution      | (None, ?, ?, ?)  |
-| Conv_6     | extract features with 3x3 convolution      | (None, ?, ?, ?)  |
-| Conv_Flat  | flatten the convoluted features            | (None, ?)        |
-| Conv_Out   | dense the flattened, convoluted features   | (None, 512)      |
+| Conv_Input | takes chess board 2D feature maps as input | (None, 8, 8,  7) |
+| Conv_1     | extract features with 7x7 convolution      | (None, 8, 8, 64) |
+| Conv_2     | extract features with 5x5 convolution      | (None, 8, 8, 32) |
+| Conv_3     | extract features with 5x5 convolution      | (None, 8, 8, 16) |
+| Conv_4     | extract features with 3x3 convolution      | (None, 8, 8, 16) |
+| Conv_5     | extract features with 3x3 convolution      | (None, 8, 8, 16) |
+| Conv_Flat  | flatten the convoluted features            | (None, 2048)     |
+| Conv_Out   | dense the flattened, convoluted features   | (None, 2048)     |
 
 The rating model could look like:
 
@@ -48,9 +47,7 @@ The rating model could look like:
 | ---------- | ------------------------------------------ | ---------------- |
 | Rate_Input | takes convoluted board features as input   | (None, 512)      |
 | Rate_1     | hidden rating dense layer                  | (None, 512)      |
-| Rate_2     | hidden rating dense layer                  | (None, 256)      |
-| Rate_3     | hidden rating dense layer                  | (None, 128)      |
-| Rate_4     | hidden rating dense layer                  | (None, 64)       |
+| Rate_2     | hidden rating dense layer                  | (None, 128)      |
 | Rate_Out   | logits dense layer -> output rating        | (None, 1)        |
 
 ## Training
@@ -61,7 +58,7 @@ on experience from the grandmaster games dataset.
 ### Step 1: Make the feature extraction understand how the chess pieces draw
 Approach:
 - use the convolution layers and flatten the convoluted output of it
-- dense it to a (None, 512) shape (this is the layer to be trained !!!)
+- dense it to a (None, 2048) shape (this is the layer to be trained !!!)
 - add some LSTM cells being feeded the densed data
 - generate state transitions of all possible draw outcomes and make the LSTM learn it
 

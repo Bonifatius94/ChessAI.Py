@@ -6,27 +6,31 @@ from tensorflow.keras.regularizers import L1L2
 from chessai.model.base import ChessFeatureExtractionModel
 
 
-class ChessRatingModel(tf.keras.Model):
+class ChessDeepQModel(tf.keras.Model):
 
     def __init__(self, params: dict):
 
         # call super constructor and store overloaded parameters
-        super(ChessRatingModel, self).__init__()
+        super(ChessDeepQModel, self).__init__()
         self.params = params
 
-        # create model layers
+        # create feature extraction layer
         self.nn_feature_ext = ChessFeatureExtractionModel(params)
         self.nn_feature_ext.trainable = params['is_fx_trainable']
+
+        # create layers to convert the fx content
         self.flatten = Flatten()
         self.dropout_1 = Dropout(rate=params['dropout_rate'])
         self.dropout_1.build((None, 1024))
 
+        # create fully-conn layers rating the extracted features
         self.nn_dense_1 = Dense(units=512, activation='relu',
                                 kernel_regularizer=L1L2(l1=params['l1_penalty'], l2=params['l2_penalty']))
         self.nn_dense_2 = Dense(units=128, activation='relu',
                                 kernel_regularizer=L1L2(l1=params['l1_penalty'], l2=params['l2_penalty']))
-        self.nn_dense_out = Dense(units=params['rating_classes'], activation='softmax',
+        self.nn_dense_out = Dense(units=1, activation='sigmoid',
                                   kernel_regularizer=L1L2(l1=params['l1_penalty'], l2=params['l2_penalty']))
+        # info: the sigmoid activation on the last layer produces output values within [-1, 1]
 
 
     def call(self, inputs, training=False):

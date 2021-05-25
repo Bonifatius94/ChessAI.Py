@@ -5,6 +5,7 @@ import chesslib
 
 import tensorflow as tf
 from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard
+from tensorflow.keras.losses import CategoricalCrossentropy
 
 from chessai.dataset import ChessGmGamesDataset
 from chessai.model.pretrain import ChessRatingModel
@@ -42,6 +43,17 @@ class RatingTrainingSession(object):
         train_data = train_data.map(lambda s0, a, r, s1: (s1, r))
         eval_data = eval_data.map(lambda s0, a, r, s1: (s1, r))
 
+        # redefine the labels as 100 classes uniformly over 0.0 - 1.0 score
+        num_classes = params['rating_classes']
+        train_data = train_data.map(lambda s1, r: (s1, tf.one_hot(
+            tf.cast(r * num_classes, dtype=tf.int32), depth=num_classes)))
+        eval_data = eval_data.map(lambda s1, r: (s1, tf.one_hot(
+            tf.cast(r * num_classes, dtype=tf.int32), depth=num_classes)))
+
+        # print first training batch to console
+        test_batch = next(iter(train_data))
+        print('test batch: {}, {}'.format(test_batch[0].numpy(), test_batch[1].numpy()))
+
         return train_data, eval_data
 
 
@@ -56,8 +68,8 @@ class RatingTrainingSession(object):
         )
 
         # create optimizer and loss func
-        optimizer = tf.optimizers.SGD(learning_rate=lr_decay_func)
-        loss_func = tf.losses.MSE
+        optimizer = tf.optimizers.SGD(learning_rate=lr_decay_func, momentum=0.9)
+        loss_func = tf.losses.CategoricalCrossentropy()
 
          # create model to be trained
         model = ChessRatingModel(params)

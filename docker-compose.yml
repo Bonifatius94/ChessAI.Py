@@ -11,3 +11,4 @@ services:
     volumes:
       - './model_weights:/app/models'
       - './logs:/app/logs'
+    mem_limit: 500m

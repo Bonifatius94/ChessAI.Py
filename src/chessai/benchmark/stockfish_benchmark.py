@@ -5,6 +5,9 @@ import numpy as np
 
 class StockfishBenchmark():
 
+    # TODO: think about converting this into a custom tensorflow metric to make it usable with model.compile()
+    # see: https://www.tensorflow.org/api_docs/python/tf/keras/metrics/Metric
+
     def __init__(self, stockfish_level: int):
         super(StockfishBenchmark, self).__init__()
         self.stockfish_level = stockfish_level
