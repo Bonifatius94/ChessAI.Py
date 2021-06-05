@@ -11,20 +11,34 @@ def convert_states(states: np.ndarray):
     bitboard_bits = np.unpackbits(np.array(states, dtype='>i8').view(np.uint8))
     bitboard_bits = np.reshape(bitboard_bits, (num_samples, 13, 64)).astype(np.float32)
 
-    # split bitboards into categories -> 2x (samples x 6 x 64), 1x (samples x 64)
-    bitboard_bits_white = bitboard_bits[:, 0:6, :]
-    bitboard_bits_black = bitboard_bits[:, 6:12, :]
-    bitboard_bits_wasmoved = bitboard_bits[:, 12, :]
-
-    # aggregate the white and black bitboards (white=1, black=-1, nothing=0)
-    bitboards_compressed = np.zeros((num_samples, 7, 64), dtype=np.float32)
-    bitboards_compressed[:, 0:6, :] = bitboard_bits_white - bitboard_bits_black
-    bitboards_compressed[:, 6, :] = bitboard_bits_wasmoved
-
-    # transpose the compressed bitboards -> (samples x 8 x 8 x 7)
-    bitboards_reshaped = np.transpose(bitboards_compressed, [0, 2, 1])
-    bitboards_reshaped = np.reshape(bitboards_reshaped, (num_samples, 8, 8, 7))
+    # transpose the bitboards -> (samples x 8 x 8 x 13)
+    bitboards_reshaped = np.transpose(bitboard_bits, [0, 2, 1])
+    bitboards_reshaped = np.reshape(bitboards_reshaped, (num_samples, 8, 8, 13))
     return bitboards_reshaped
+
+
+# def convert_states(states: np.ndarray):
+
+#     num_samples = states.shape[0]
+
+#     # convert uint64 bitboards to 64 bits as float32 each -> (samples x 13 x 64)
+#     bitboard_bits = np.unpackbits(np.array(states, dtype='>i8').view(np.uint8))
+#     bitboard_bits = np.reshape(bitboard_bits, (num_samples, 13, 64)).astype(np.float32)
+
+#     # split bitboards into categories -> 2x (samples x 6 x 64), 1x (samples x 64)
+#     bitboard_bits_white = bitboard_bits[:, 0:6, :]
+#     bitboard_bits_black = bitboard_bits[:, 6:12, :]
+#     bitboard_bits_wasmoved = bitboard_bits[:, 12, :]
+
+#     # aggregate the white and black bitboards (white=1, black=-1, nothing=0)
+#     bitboards_compressed = np.zeros((num_samples, 7, 64), dtype=np.float32)
+#     bitboards_compressed[:, 0:6, :] = bitboard_bits_white - bitboard_bits_black
+#     bitboards_compressed[:, 6, :] = bitboard_bits_wasmoved
+
+#     # transpose the bitboards -> (samples x 8 x 8 x 7)
+#     bitboards_reshaped = np.transpose(bitboards_compressed, [0, 2, 1])
+#     bitboards_reshaped = np.reshape(bitboards_reshaped, (num_samples, 8, 8, 7))
+#     return bitboards_reshaped
 
 
 # @tf.function

@@ -9,6 +9,6 @@ services:
       context: .
     entrypoint: ["python", "main.py"]
     volumes:
-      - './model_weights:/app/models'
+      - './model_weights:/app/model'
       - './logs:/app/logs'
-    mem_limit: 500m
+    mem_limit: 2g

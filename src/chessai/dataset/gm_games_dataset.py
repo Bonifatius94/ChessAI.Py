@@ -8,6 +8,8 @@ import pandas as pd
 import tensorflow as tf
 import chesslib
 
+from .dataset_utils import convert_states
+
 
 class ChessGmGamesDataset(object):
 
@@ -17,14 +19,14 @@ class ChessGmGamesDataset(object):
         self.batch_size = batch_size
 
 
-    def load_datasets(self, sample_seed: int=None) -> (tf.data.Dataset, tf.data.Dataset):
+    def load_datasets(self, sample_seed: int=None, min_occurrences: int=20):
 
         # make sure the winrates database is locally available (download if not)
         db_filepath = './win_rates.db'
         self.download_winrates_db(db_filepath)
 
         # load the training data into a pandas dataframe using a SQL query
-        winrates_cache = self.load_pandas_winrates(db_filepath)
+        winrates_cache = self.load_pandas_winrates(db_filepath, min_occurrences)
 
         # split the data into randomly sampled training and evaluation chunks (9:1)
         train_data = winrates_cache.sample(frac=0.9, random_state=sample_seed)
@@ -53,11 +55,11 @@ class ChessGmGamesDataset(object):
                 out_file.write(req.content)
 
 
-    def load_pandas_winrates(self, db_filepath: str):
+    def load_pandas_winrates(self, db_filepath: str, min_occurrences: int):
 
         conn = sqlite3.connect(db_filepath)
         sql_str = 'SELECT BoardBeforeHash, DrawHashNumeric, WinRate \
-            FROM WinRateInfo -- WHERE AnalyzedGames >= 10'
+            FROM WinRateInfo WHERE AnalyzedGames >= {}'.format(min_occurrences)
         win_rates_cache = pd.read_sql(sql_str, conn)
         conn.close()
         return win_rates_cache
@@ -74,8 +76,8 @@ class ChessGmGamesDataset(object):
         print(states.shape, actions.shape, rewards.shape, next_states.shape)
 
         # convert the states into the 2D format (7 channels) used for feature extraction
-        conv_states = self.convert_states(states)
-        conv_next_states = self.convert_states(next_states)
+        conv_states = convert_states(states)
+        conv_next_states = convert_states(next_states)
 
         return (conv_states, actions, rewards, conv_next_states)
 

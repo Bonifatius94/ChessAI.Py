@@ -24,21 +24,16 @@ def launch_pretrain_ratings():
         # define dataset batch size and training epochs
         'batch_size': 32,
         'epochs': 30,
-        'train_data_split': 1.0,
+        # 'train_data_split': 1.0,
+        'min_occ': 50,
 
-        'rating_classes': 3,
-        'dropout_rate': 0.0,
-
-        # define the learning rate (exp. decay)
-        'learn_rate': 0.005,
-        'total_train_batches': 2496,
-        'lr_decay_epochs': 5,
-        'lr_decay_rate': 0.5,
-        'lr_decay_staircase': False,
+        # define the learning rate
+        'learn_rate': 0.001,
+        'dropout_rate': 0.5,
 
         # define regularization loss penalties
-        'l1_penalty': 1e-4,
-        'l2_penalty': 1e-5,
+        'l1_penalty': 0,#4e-5,
+        'l2_penalty': 0,#4e-6,
 
         # make the feature extractor variables trainable
         'is_fx_trainable': True,
