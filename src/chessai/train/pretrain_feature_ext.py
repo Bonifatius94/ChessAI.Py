@@ -8,24 +8,22 @@ from tensorflow import keras
 import chesslib
 
 from chessai.dataset import ChessGmGamesDataset
-from chessai.pretrain import ChessRatingModel
+from chessai.model.pretrain import ChessDrawgenModel
 
 
-class RatingTrainingSession(object):
+# TODO: rework this training script from scratch
+
+
+class DrawGenTrainingSession(object):
 
     def __init__(self, params: dict):
 
-        super(RatingTrainingSession, self).__init__()
+        super(DrawGenTrainingSession, self).__init__()
         self.params = params
 
         # create training and evaluation datasets
         dataset = ChessGmGamesDataset(params['batch_size'])
         self.train_dataset, self.eval_dataset = dataset.load_datasets()
-
-        # create model to be trained
-        self.model = ChessRatingModel(params)
-        self.model.build((None, 8, 8, 7))
-        print(self.model.summary())
 
         # create learning rate decay func
         self.lr_decay_func = tf.keras.optimizers.schedules.ExponentialDecay(
@@ -35,15 +33,18 @@ class RatingTrainingSession(object):
             staircase=False
         )
 
+        # create model to be trained
+        self.model = ChessDrawGenerator(params)
+        # self.model.build((None, 8, 8, 7))
+        # print(self.model.summary())
+
         # create optimizer and loss func
         self.optimizer = tf.optimizers.SGD(learning_rate=self.lr_decay_func)
-        self.loss_func = tf.losses.MSE
+        self.loss_func = tf.losses.CategoricalCrossentropy()
 
-        # load pre-trained feature extractor and create model checkpoints
-        checkpoint = tf.train.Checkpoint(optimizer=self.optimizer, net=self.model)
-        self.manager = tf.train.CheckpointManager(checkpoint, './models/pretrain-fx', max_to_keep=5)
-        checkpoint.restore(self.manager.latest_checkpoint).expect_partial()
-        self.manager = tf.train.CheckpointManager(checkpoint, './models/pretrain-ratings', max_to_keep=5)
+        # create model checkpoints
+        self.checkpoint = tf.train.Checkpoint(optimizer=self.optimizer, net=self.model)
+        self.manager = tf.train.CheckpointManager(self.checkpoint, '/app/models/pretrain-fx', max_to_keep=5)
 
         # create logging metrics
         self.train_loss = tf.keras.metrics.Mean(name="train_loss")
@@ -52,8 +53,8 @@ class RatingTrainingSession(object):
         self.eval_acc = tf.keras.metrics.Mean(name="eval_acc")
 
         # create TensorBoard summary writer
-        self.train_summary_writer = tf.summary.create_file_writer('./logs/train')
-        self.eval_summary_writer = tf.summary.create_file_writer('./logs/eval')
+        self.train_summary_writer = tf.summary.create_file_writer('/app/logs/train')
+        self.eval_summary_writer = tf.summary.create_file_writer('/app/logs/eval')
 
 
     def run_training(self):
@@ -100,13 +101,23 @@ class RatingTrainingSession(object):
 
         # unwrap batch data as SARS data
         states, actions, rewards, next_states = batch_data
+        input_positions = tf.bitwise.bitwise_and(actions, 0x3F)
+        target_positions = tf.bitwise.right_shift(tf.bitwise.bitwise_and(actions, 0xFC0), 6)
+        target_positions = tf.one_hot(target_positions, depth=64, dtype=tf.float32)
 
         with tf.GradientTape() as tape:
 
-            # predict ratings and compute loss
-            pred_ratings = self.model(next_states)
-            label_ratings = rewards
-            loss = self.loss_func(y_true=label_ratings, y_pred=pred_ratings)
+            # initialize the LSTM states by showing the chess boards to it
+            h = self.model.show_chessboard(states)
+
+            # now, predict the most likely target position for the acting chess pieces
+            pred_positions = tf.nn.softmax(self.model(input_positions, h))
+
+            # compute the loss (check if the correct target positions were predicted)
+            loss = self.loss_func(y_true=target_positions, y_pred=pred_positions)
+
+            # scale the loss according to the rewards (-> favour better actions)
+            # loss = loss * tf.math.log(1 - tf.cast(rewards, dtype=tf.float32))
 
         # compute gradients and optimize the model
         gradients = tape.gradient(loss, self.model.trainable_variables)
@@ -122,38 +133,21 @@ class RatingTrainingSession(object):
 
         # unwrap batch data as SARS data
         states, actions, rewards, next_states = batch_data
+        input_positions = tf.bitwise.bitwise_and(actions, 0x3F)
+        target_positions = tf.bitwise.bitwise_and(actions, 0xFC0)
+        target_positions = tf.one_hot(target_positions, depth=64, dtype=tf.float32)
 
-        # predict ratings and compute loss
-        pred_ratings = self.model(next_states)
-        label_ratings = rewards
-        loss = self.loss_func(y_true=label_ratings, y_pred=pred_ratings)
+        # initialize the LSTM states by showing the chess boards to it
+        h = self.model.show_chessboard(states)
+
+        # now, predict the most likely target position for the acting chess pieces
+        pred_positions = tf.nn.softmax(self.model(input_positions, h))
+
+        # compute the loss (check if the correct target positions were predicted)
+        # scale the loss according to the rewards (-> favour better actions)
+        loss = self.loss_func(y_true=target_positions, y_pred=pred_positions)
+        # loss = loss * tf.math.log(1 - rewards)
 
         # write loss and accuracy to the metrics cache
         self.eval_loss(loss)
         # self.eval_acc(1 - loss)
-
-
-def main():
-
-    # TODO: refactor this by adding a main script starting the entire training processes
-    #       for all pre-training scripts
-
-    # TODO: transform this into a JSON settings file
-    params = {
-        'epochs': 30,
-        'batch_size': 32,
-        'learn_rate': 0.2,
-        'lr_decay_epochs': 3,
-        'lr_decay_rate': 0.5,
-
-        'log_interval': 100,
-        'total_train_batches': 2774,
-    }
-
-    session = RatingTrainingSession(params)
-    session.run_training()
-
-
-# launch training
-if __name__ == '__main__':
-    main()

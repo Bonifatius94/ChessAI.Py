@@ -8,7 +8,7 @@ import pandas as pd
 import tensorflow as tf
 import chesslib
 
-from .chessboard_ext import chessboard_to_compact_2d_feature_maps as conv_board
+from .dataset_utils import convert_states
 
 
 class ChessGmGamesDataset(object):
@@ -19,26 +19,28 @@ class ChessGmGamesDataset(object):
         self.batch_size = batch_size
 
 
-    def load_datasets(self):
+    def load_datasets(self, sample_seed: int=None, min_occurrences: int=20):
 
         # make sure the winrates database is locally available (download if not)
         db_filepath = './win_rates.db'
         self.download_winrates_db(db_filepath)
 
         # load the training data into a pandas dataframe using a SQL query
-        # then, convert the dataframe to SARS format
-        winrates_cache = self.load_pandas_winrates(db_filepath)
-        sars_winrates = self.prepare_pandas_data(winrates_cache)
+        winrates_cache = self.load_pandas_winrates(db_filepath, min_occurrences)
 
         # split the data into randomly sampled training and evaluation chunks (9:1)
-        train_data = sars_winrates.sample(frac=0.9)
-        eval_data = sars_winrates.drop(train_data.index)
+        train_data = winrates_cache.sample(frac=0.9, random_state=sample_seed)
+        eval_data = winrates_cache.drop(train_data.index)
+
+        # convert the data into the SARS format
+        train_data = self.prepare_pandas_data(train_data)
+        eval_data = self.prepare_pandas_data(eval_data)
 
         # transform the pandas dataframe into a tensorflow dataset
         train_dataset = self.create_tf_dataset(train_data, self.batch_size, train=True)
         eval_dataset = self.create_tf_dataset(eval_data, self.batch_size, train=False)
 
-        return train_dataset, eval_dataset
+        return (train_dataset, eval_dataset)
 
 
     def download_winrates_db(self, db_filepath: str):
@@ -53,11 +55,11 @@ class ChessGmGamesDataset(object):
                 out_file.write(req.content)
 
 
-    def load_pandas_winrates(self, db_filepath: str):
+    def load_pandas_winrates(self, db_filepath: str, min_occurrences: int):
 
         conn = sqlite3.connect(db_filepath)
         sql_str = 'SELECT BoardBeforeHash, DrawHashNumeric, WinRate \
-            FROM WinRateInfo -- WHERE AnalyzedGames >= 10'
+            FROM WinRateInfo WHERE AnalyzedGames >= {}'.format(min_occurrences)
         win_rates_cache = pd.read_sql(sql_str, conn)
         conn.close()
         return win_rates_cache
@@ -66,49 +68,42 @@ class ChessGmGamesDataset(object):
     def prepare_pandas_data(self, pd_winrates: pd.DataFrame):
 
         # convert the dataframe into SARS data slices (state-action-reward-nextstate)
-        states = [self.bitboards_from_hash(x) for x in pd_winrates['BoardBeforeHash']]
-        actions = pd_winrates['DrawHashNumeric']
-        rewards = pd_winrates['WinRate']
+        states = np.array([np.array(self.bitboards_from_hash(x)) for x in pd_winrates['BoardBeforeHash']])
+        actions = np.array(pd_winrates['DrawHashNumeric'])
+        rewards = np.array(pd_winrates['WinRate'])
+        next_states = np.array([chesslib.ApplyDraw(states[i], actions[i]) for i in range(len(states))])
 
-        # combine the SARS data slices to a dataframe
-        pd_winrates_sars = pd.DataFrame()
-        pd_winrates_sars['states'] = states
-        pd_winrates_sars['actions'] = actions
-        pd_winrates_sars['rewards'] = rewards
+        print(states.shape, actions.shape, rewards.shape, next_states.shape)
 
-        next_states = pd_winrates_sars.apply(lambda x: chesslib.ApplyDraw(x[0], x[1]), axis=1)
-        pd_winrates_sars['next_states'] = next_states
+        # convert the states into the 2D format (7 channels) used for feature extraction
+        conv_states = convert_states(states)
+        conv_next_states = convert_states(next_states)
 
-        return pd_winrates_sars
+        return (conv_states, actions, rewards, conv_next_states)
 
 
     def bitboards_from_hash(self, board_hash: str):
         return chesslib.Board_FromHash(np.frombuffer(bytes.fromhex(board_hash), dtype=np.uint8))
 
 
-    def compact_draw_from_hash(self, draw_hash: str):
-        return int(draw_hash) & 0x7FFF
+    # def compact_draw_from_hash(self, draw_hash: str):
+    #     return int(draw_hash) & 0x7FFF
 
 
-    def create_tf_dataset(self, pd_sars_winrates: pd.DataFrame, batch_size: int, train: bool):
+    def create_tf_dataset(self, sars_data: tuple, batch_size: int, train: bool):
+
+        # unwrap SARS data
+        states, actions, rewards, next_states = sars_data
 
         # convert the pandas dataframe's columns to tensor slices
-        states = tf.convert_to_tensor(np.array(
-            [np.squeeze(np.array(x)) for x in pd_sars_winrates['states']]), dtype=tf.uint64)
-        actions = tf.convert_to_tensor(np.array(pd_sars_winrates['actions']))
-        rewards = tf.convert_to_tensor(np.array(pd_sars_winrates['rewards']))
-        next_states = tf.convert_to_tensor(np.array(
-            [np.squeeze(np.array(x)) for x in pd_sars_winrates['next_states']]), dtype=tf.uint64)
+        states = tf.convert_to_tensor(states, dtype=tf.float32)
+        actions = tf.convert_to_tensor(actions, dtype=tf.float32)
+        rewards = tf.convert_to_tensor(rewards, dtype=tf.float32)
+        next_states = tf.convert_to_tensor(next_states, dtype=tf.float32)
 
         # create a dataset from the tensor slices -> SARS tuples
         dataset = tf.data.Dataset.from_tensor_slices(
             tensors=(states, actions, rewards, next_states))
-
-        # convert the chesslib bitboards to compressed, convolutable 8x8x7 feature maps
-        dataset = dataset.map(lambda state, action, reward, next_state:
-            (conv_board(state), action, reward, conv_board(next_state)),
-            num_parallel_calls=8, deterministic=True
-        )
 
         # batch the data properly
         dataset = dataset.batch(batch_size, drop_remainder=True)
@@ -117,26 +112,3 @@ class ChessGmGamesDataset(object):
         if train: dataset = dataset.shuffle(50)
 
         return dataset
-
-
-# this is just a test script making sure all functions work fine
-if __name__ == '__main__':
-
-    # test single chessboard tensor conversion
-    start_board = chesslib.ChessBoard_StartFormation()
-    conv_start_board = chessboard_to_2d_feature_maps(start_board)
-    print(conv_start_board.numpy())
-
-    # test loading training and eval datasets
-    batch_size = 32
-    train_dataset, eval_dataset = load_datasets(batch_size)
-    print(train_dataset)
-    print(eval_dataset)
-
-    # try to print the first batch item of each dataset
-    train_iterator = iter(train_dataset)
-    first_item = train_iterator.next()
-    print(first_item)
-    eval_iterator = iter(eval_dataset)
-    first_item = eval_iterator.next()
-    print(first_item)
