@@ -1,11 +1,8 @@
 
 from datetime import datetime
-import numpy as np
-import chesslib
 
 import tensorflow as tf
 from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard
-from tensorflow.keras.losses import CategoricalCrossentropy
 
 from chessai.dataset import ChessGmGamesDataset
 from chessai.model.pretrain import ChessRatingModel
@@ -26,11 +23,11 @@ class RatingTrainingSession(object):
 
         print('creating model ...')
         self.model = self.create_model(params)
-        print(self.model.summary())
+        # print(self.model.summary())
 
         # create model checkpoint manager
         self.model_ckpt_callback = ModelCheckpoint(
-            filepath='/app/model/pretrain-ratings', save_weights_only=True,
+            filepath='/app/model/pretrain-ratings/', save_weights_only=True,
             monitor='val_loss', mode='max', save_best_only=True)
 
         # create tensorboard logger
@@ -45,23 +42,16 @@ class RatingTrainingSession(object):
         # load batched SARS datasets
         dataset_generator = ChessGmGamesDataset(params['batch_size'])
         train_data, eval_data = dataset_generator.load_datasets(
-            sample_seed=0, min_occurrences=params['min_occ'])
+            min_occurrences=params['min_occ'])
 
         # extract inputs as the chess board (after) and targets as the reward
         # drop the rest of the SARS data, it's not required for this training
-        train_data = train_data.map(lambda s0, a, r, s1: (s1, r))
-        eval_data = eval_data.map(lambda s0, a, r, s1: (s1, r))
-
-        # redefine the labels as 100 classes uniformly over 0.0 - 1.0 score
-        # num_classes = params['rating_classes']
-        # train_data = train_data.map(lambda s1, r: (s1, tf.one_hot(
-        #     tf.cast(r * num_classes, dtype=tf.int32), depth=num_classes)))
-        # eval_data = eval_data.map(lambda s1, r: (s1, tf.one_hot(
-        #     tf.cast(r * num_classes, dtype=tf.int32), depth=num_classes)))
+        train_data = train_data.map(lambda s0, a, r, s1, side: ((s1, side), r))
+        eval_data = eval_data.map(lambda s0, a, r, s1, side: ((s1, side), r))
 
         # print first training batch to console
-        test_batch = next(iter(train_data))
-        print('test batch: {}, {}'.format(test_batch[0].numpy(), test_batch[1].numpy()))
+        # test_batch = next(iter(train_data))
+        # print('test batch: {}, {}'.format(test_batch[0].numpy(), test_batch[1].numpy()))
 
         return train_data, eval_data
 
@@ -83,7 +73,7 @@ class RatingTrainingSession(object):
 
          # create model to be trained
         model = ChessRatingModel(params)
-        model.build((None, 8, 8, 13))
+        #model.build((None, 8, 8, 13))
         model.compile(optimizer=optimizer, loss=loss_func)
 
         return model

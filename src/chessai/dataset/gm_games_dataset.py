@@ -75,11 +75,17 @@ class ChessGmGamesDataset(object):
 
         print(states.shape, actions.shape, rewards.shape, next_states.shape)
 
-        # convert the states into the 2D format (7 channels) used for feature extraction
+        # convert the states into the 2D format (13 channels) used for feature extraction
         conv_states = convert_states(states)
         conv_next_states = convert_states(next_states)
 
-        return (conv_states, actions, rewards, conv_next_states)
+        # precompute the acting sides
+        get_side = lambda action: action & 0x800000 >> 23
+        acting_sides = np.array([get_side(x) for x in actions])
+
+        # TODO: normalize the drawing side, i.e. switch the board and piece colors, so only one side always draws
+
+        return (conv_states, actions, rewards, conv_next_states, acting_sides)
 
 
     def bitboards_from_hash(self, board_hash: str):
@@ -93,17 +99,18 @@ class ChessGmGamesDataset(object):
     def create_tf_dataset(self, sars_data: tuple, batch_size: int, train: bool):
 
         # unwrap SARS data
-        states, actions, rewards, next_states = sars_data
+        states, actions, rewards, next_states, acting_sides = sars_data
 
         # convert the pandas dataframe's columns to tensor slices
         states = tf.convert_to_tensor(states, dtype=tf.float32)
         actions = tf.convert_to_tensor(actions, dtype=tf.float32)
         rewards = tf.convert_to_tensor(rewards, dtype=tf.float32)
         next_states = tf.convert_to_tensor(next_states, dtype=tf.float32)
+        acting_sides = tf.convert_to_tensor(acting_sides, dtype=tf.float32)
 
         # create a dataset from the tensor slices -> SARS tuples
         dataset = tf.data.Dataset.from_tensor_slices(
-            tensors=(states, actions, rewards, next_states))
+            tensors=(states, actions, rewards, next_states, acting_sides))
 
         # batch the data properly
         dataset = dataset.batch(batch_size, drop_remainder=True)
