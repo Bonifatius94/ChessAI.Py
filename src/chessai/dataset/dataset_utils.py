@@ -3,7 +3,7 @@ import tensorflow as tf
 import numpy as np
 
 
-def convert_states(states: np.ndarray):
+def convert_states(states: np.ndarray) -> np.ndarray:
 
     num_samples = states.shape[0]
 

@@ -32,7 +32,7 @@ def launch_pretrain_ratings():
         'dropout_rate': 0.5,
 
         # define regularization loss penalties
-        'l1_penalty': 0,#4e-5,
+        'l1_penalty': 1e-5,
         'l2_penalty': 0,#4e-6,
 
         # make the feature extractor variables trainable
@@ -52,7 +52,7 @@ def launch_train_deepq():
         # define dataset batch size and training epochs
         'batch_size': 32,
         'epochs': 1000,
-        'batches_per_epoch': 200,
+        'max_steps_per_episode': 200,
         'fit_epochs': 1,
 
         # Q-learning params
