@@ -11,4 +11,4 @@ services:
     volumes:
       - './model_weights:/app/model'
       - './logs:/app/logs'
-    mem_limit: 2g
+    mem_limit: 3g
