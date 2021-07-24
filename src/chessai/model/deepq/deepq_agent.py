@@ -13,7 +13,8 @@ class ChessDeepQAgent():
     Given a game context it can choose 'best' action and perform training steps to maximize rewards.
     """
 
-    def __init__(self, env: ChessGameEnv, model_adj: AbstractModelAdjuster, epsilon: float=0.1):
+    def __init__(self, env: ChessGameEnv, model_adj: AbstractModelAdjuster,
+                 epsilon: float=0.1, batch_size: int=32):
         super(ChessDeepQAgent, self).__init__()
 
         # assign overloaded hyper-params
@@ -27,7 +28,7 @@ class ChessDeepQAgent():
         # initialize a buffered experience memory
         batch_types = (np.float32, np.int32, np.float32, np.float32, np.float32)
         self.batch_formatter = StackedNumpyBatchFormatter(batch_types)
-        self.exp_memory = SimpleBufferedExperienceMemory(
+        self.exp_memory = SimpleBufferedExperienceMemory(batch_size=batch_size,
             batch_transform_func=self.batch_formatter.format_batch)
 
         # # add formatting functions detecting raw chessboards and formatting them properly

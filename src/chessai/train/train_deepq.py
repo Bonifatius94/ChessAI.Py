@@ -43,8 +43,10 @@ class DeepQTrainingSession(object):
         env = ChessGameEnv(max_steps_per_episode=self.params['max_steps_per_episode'])
 
         # create the learning agent
-        model_adj = ChessDeepQModelAdjuster(alpha=self.params['learn_rate'], gamma=self.params['gamma'])
-        agent = ChessDeepQAgent(env, model_adj, epsilon=self.params['expl_rate'])
+        model_adj = ChessDeepQModelAdjuster(alpha=self.params['learn_rate'],
+                                            gamma=self.params['gamma'])
+        agent = ChessDeepQAgent(env, model_adj, epsilon=self.params['expl_rate'],
+                                batch_size=self.params['batch_size'])
 
         # TODO: think of training 2 different agents representing white / black side
 

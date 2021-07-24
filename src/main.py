@@ -52,7 +52,7 @@ def launch_train_deepq():
         # define dataset batch size and training epochs
         'batch_size': 32,
         'epochs': 1000,
-        'max_steps_per_episode': 200,
+        'max_steps_per_episode': 100,
         'fit_epochs': 1,
 
         # Q-learning params

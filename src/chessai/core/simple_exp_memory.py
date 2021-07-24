@@ -12,12 +12,13 @@ class SimpleBufferedExperienceMemory():
     3) clearing the buffer
     """
 
-    def __init__(self, mem_size: int=100000, batch_size: int=128,
-                 batch_transform_func=None):
+    def __init__(self, mem_size: int=100000, min_exp_size: int=10000,
+                 batch_size: int=128, batch_transform_func=None):
         super(SimpleBufferedExperienceMemory, self).__init__()
 
         # assign memory hyper-parameters
         self.mem_size = mem_size
+        self.min_exp_size = min_exp_size
         self.batch_size = batch_size
 
         # initialize the batch postprocessing function
@@ -44,7 +45,7 @@ class SimpleBufferedExperienceMemory():
     def sample_exp_batch(self) -> tuple:
 
         # make sure there are enough experiences to sample a batch from
-        if len(self.memory) < self.batch_size: return None
+        if len(self.memory) < self.min_exp_size: return None
 
         # sample random indices to be drawn from the buffer
         indices = np.random.randint(low=0, high=len(self.memory),
