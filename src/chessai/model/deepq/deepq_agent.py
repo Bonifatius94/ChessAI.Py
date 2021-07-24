@@ -30,6 +30,16 @@ class ChessDeepQAgent():
         self.exp_memory = SimpleBufferedExperienceMemory(
             batch_transform_func=self.batch_formatter.format_batch)
 
+        # # add formatting functions detecting raw chessboards and formatting them properly
+        # is_raw_chessboard = lambda attr: isinstance(attr, np.ndarray) \
+        #     and len(attr.shape) == 2 and attr.shape[1] == 13 and attr.dtype == np.uint64
+        # conv_batch_attr = lambda attr: convert_states(attr) if is_raw_chessboard(attr) else attr
+        # format_states = lambda batch: tuple([conv_batch_attr(attr) for attr in batch])
+
+        # # apply the batch formatting logic to the experience memory
+        # batch_transform_func = lambda batch: format_states(self.batch_formatter.format_batch(batch))
+        # self.exp_memory = SimpleBufferedExperienceMemory(batch_transform_func=batch_transform_func)
+
 
     def choose_action(self) -> int:
 
@@ -54,8 +64,15 @@ class ChessDeepQAgent():
         self.exp_memory.add_experience(experience)
         train_batch = self.exp_memory.sample_exp_batch()
 
-        # train on the sampled batch and update the model accordingly
-        if train_batch is not None: self.model_adj.update_weights(self.model, train_batch)
+        # if there's a batch to be trained on
+        if train_batch is not None:
+
+            # make sure the chess boards are formatted as the model expects them
+            train_batch = (convert_states(train_batch[0]), train_batch[1],
+                train_batch[2], convert_states(train_batch[3]), train_batch[4])
+
+            # train on the sampled batch and update the model accordingly
+            self.model_adj.update_weights(self.model, train_batch)
 
 
     # TODO: think of adding functionality for loading / saving the model

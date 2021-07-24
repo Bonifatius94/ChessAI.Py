@@ -25,8 +25,8 @@ class StackedNumpyBatchFormatter():
 
         # sample the attributes from each tuple on the batch
         # -> one stacked numpy array per attribute
-        batch = [[x[attr] for x in batch] for attr in num_attr]
-        batch = [np.array(batch[attr], dtype=self.out_types[attr]) for attr in num_attr]
+        batch = [[x[attr] for x in batch] for attr in range(num_attr)]
+        batch = [np.array(batch[attr], dtype=self.out_types[attr]) for attr in range(num_attr)]
 
         # return the stacked batch attributes as a tuple
         return tuple(batch)

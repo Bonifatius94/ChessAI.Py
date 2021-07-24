@@ -32,7 +32,7 @@ class SimpleBufferedExperienceMemory():
         # append the experience to the buffer
         self.memory.append(exp)
 
-        # forget the oldest experience in the buffer (if the buffer is filled)
+        # forget the oldest experience in the buffer (if the buffer overflows)
         if len(self.memory) > self.mem_size: self.memory.pop(0)
 
 
@@ -47,10 +47,9 @@ class SimpleBufferedExperienceMemory():
         if len(self.memory) < self.batch_size: return None
 
         # sample random indices to be drawn from the buffer
-        indices = np.random.randint(low=0, high=self.mem_size, size=self.batch_size, dtype=np.int32)
-        if any(map(lambda i: i >= self.mem_size, indices)): print('invalid indices:', indices)
+        indices = np.random.randint(low=0, high=len(self.memory),
+                                    size=self.batch_size, dtype=np.int32)
         sampled_batch = [self.memory[i] for i in indices]
-        # TODO: find out what causes the index overflow
 
         # format the sampled batch properly
         return sampled_batch if self.batch_transform_func is None \

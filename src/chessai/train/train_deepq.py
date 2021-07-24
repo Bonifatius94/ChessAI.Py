@@ -67,8 +67,8 @@ class DeepQTrainingSession(object):
             draw_history.append(action)
             if is_terminal:
                 winning_side = 'white' if len(draw_history) % 2 == 0 else 'black'
-                print(f'episode: {env.episode}, reward: {reward}')
-                print(f'draw history: {draw_history}, winning side: {winning_side}')
+                tf.print(f'episode: {env.episode}, reward: {reward}')
+                tf.print(f'draw history: {draw_history}, winning side: {winning_side}')
                 draw_history = list()
 
             # TODO: add save model calls to persist the trained weights
